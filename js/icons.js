@@ -1,0 +1,32 @@
+/* NOX: ícones em traço (grade 24x24), usados na tela e nas imagens de compartilhamento. */
+const ICONS = {
+  home: 'M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-5h4v5',
+  calendar: 'M5 6h14a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1zM4 10h16M8 4v4M16 4v4',
+  chart: 'M5 20v-7M10 20V6M15 20v-10M20 20V4',
+  trophy: 'M8 4h8v6a4 4 0 01-8 0zM8 6H5v1a3 3 0 003 3M16 6h3v1a3 3 0 01-3 3M12 14v4M8 20h8M9.5 18h5',
+  gear: 'M4 7h9M17 7h3M15 5a2 2 0 100 4 2 2 0 000-4zM4 17h3M11 17h9M9 15a2 2 0 100 4 2 2 0 000-4z',
+  moon: 'M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z',
+  bolt: 'M13 3L5 13.5h6L10 21l9-11h-6z',
+  target: 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 7.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9zM12 11.5v1',
+  eye: 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.500 12 18.500 2.500 12 2.500 12zM12 9a3 3 0 100 6 3 3 0 000-6z',
+  compass: 'M12 3a9 9 0 100 18 9 9 0 000-18zM15.500 8.500l-2 5-5 2 2-5z',
+  crown: 'M4 8l4 3.500L12 5l4 6.500L20 8l-1.500 10h-13zM6 21h12',
+  plus: 'M12 5v14M5 12h14',
+  minus: 'M5 12h14',
+  left: 'M15 5l-7 7 7 7',
+  right: 'M9 5l7 7-7 7',
+  close: 'M6 6l12 12M18 6L6 18',
+  check: 'M5 12.500l4.500 4.500L19 7.500',
+  share: 'M12 15V4M8 8l4-4 4 4M6 12H5v8h14v-8h-1',
+  download: 'M12 4v11M8 11l4 4 4-4M5 20h14',
+  upload: 'M12 15V4M8 8l4-4 4 4M5 20h14',
+  copy: 'M9 9h10v11H9zM15 9V4H5v11h4',
+  edit: 'M4 20l1-4L16 5l3 3L8 19zM14 7l3 3',
+  trash: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13M10 11v5M14 11v5',
+  star: 'M12 3.500l2.600 5.400 5.900.8-4.300 4.100 1.100 5.800L12 16.800l-5.300 2.800 1.100-5.800-4.300-4.100 5.900-.8z',
+  lock: 'M6 11h12v9H6zM8.500 11V8a3.500 3.500 0 017 0v3',
+  info: 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 11v6M12 7.500v.5',
+  shield: 'M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6zM8.500 12l2.500 2.500 4.500-5',
+};
+const icon = (name, cls = '') =>
+  `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
