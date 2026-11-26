@@ -248,12 +248,12 @@
   /* [id, nome, medalha que libera]. A primeira opção de cada parte é a padrão. */
   const AVATAR_PARTS = {
     head: [['redondo', 'Redondo'], ['oval', 'Oval'], ['quadrado', 'Quadrado'], ['queixo', 'Queixo fino']],
-    hair: [['curto', 'Curto'], ['topete', 'Topete'], ['cacheado', 'Cacheado'], ['afro', 'Black power'], ['longo', 'Longo'], ['chanel', 'Chanel'], ['coque', 'Coque'], ['rabo', 'Rabo de cavalo'], ['trancas', 'Tranças'], ['espetado', 'Espetado'], ['moicano', 'Moicano'], ['careca', 'Sem cabelo']],
-    eyes: [['normal', 'Normais'], ['grandes', 'Grandes'], ['felizes', 'Felizes'], ['piscando', 'Piscadinha'], ['sono', 'Com sono'], ['fechados', 'Fechados'], ['estrela', 'Estrelas', 'fresh']],
+    hair: [['curto', 'Curto'], ['topete', 'Topete'], ['cacheado', 'Cacheado'], ['afro', 'Black power'], ['longo', 'Longo'], ['chanel', 'Chanel'], ['coque', 'Coque'], ['rabo', 'Maria-chiquinha'], ['trancas', 'Tranças'], ['espetado', 'Espetado'], ['moicano', 'Moicano'], ['careca', 'Sem cabelo']],
+    eyes: [['normal', 'Normais'], ['grandes', 'Grandes'], ['felizes', 'Felizes'], ['piscando', 'Cílios'], ['sono', 'Com sono'], ['fechados', 'Fechados'], ['estrela', 'Estrelas', 'fresh']],
     mouth: [['sorriso', 'Sorriso'], ['risada', 'Risada'], ['dentes', 'Dentes'], ['neutro', 'Tranquila'], ['uau', 'Uau'], ['lingua', 'Língua'], ['gatinho', 'Gatinho']],
-    extra: [['nada', 'Nada'], ['bochechas', 'Bochechas'], ['sardas', 'Sardas'], ['pinta', 'Pintinha'], ['bigode', 'Bigode'], ['barba', 'Barba']],
+    extra: [['nada', 'Nada'], ['bochechas', 'Bochechas'], ['sardas', 'Sardas'], ['pinta', 'Pintinhas'], ['bigode', 'Bigode'], ['barba', 'Barba']],
     outfit: [['camiseta', 'Camiseta'], ['moletom', 'Moletom'], ['listras', 'Listrada'], ['regata', 'Regata'], ['social', 'Camisa'], ['gola', 'Gola alta'], ['pijama', 'Pijama', 'week'], ['capa', 'Capa de herói', 'guardian'], ['terno', 'Terno e relógio', 'swiss']],
-    glasses: [['nada', 'Nenhum'], ['redondos', 'Redondos'], ['quadrados', 'Quadrados'], ['escuros', 'Escuros'], ['coracao', 'Corações', 'consist'], ['monoculo', 'Monóculo', 'detail'], ['coruja', 'Coruja', 'early'], ['estrelas', 'Estrelas', 'weekend']],
+    glasses: [['nada', 'Nenhum'], ['redondos', 'Redondos'], ['quadrados', 'Quadrados'], ['escuros', 'Escuros'], ['coracao', 'Corações', 'consist'], ['monoculo', 'Aro dourado', 'detail'], ['coruja', 'Coruja', 'early'], ['estrelas', 'Estrelas', 'weekend']],
     hat: [['nada', 'Nenhum'], ['bone', 'Boné'], ['laco', 'Laço'], ['faixa', 'Faixa'], ['touca', 'Touca de dormir', 'first'], ['fone', 'Fones', 'streak'], ['explorador', 'Explorador', 'explorer'], ['coroa', 'Coroa', 'hundred'], ['aureola', 'Auréola', 'perfect']],
     bg: [['roxo', 'Roxo'], ['azul', 'Azul'], ['ciano', 'Ciano'], ['rosa', 'Rosa'], ['verde', 'Verde'], ['laranja', 'Laranja'], ['lua', 'Noite de lua', 'moon3'], ['aurora', 'Aurora', 'month'], ['galaxia', 'Galáxia', 'galaxy']],
   };

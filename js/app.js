@@ -21,6 +21,7 @@
   const reward = id => S.rewards.find(r => r.id === id);
   const level = () => L.levelInfo(L.totalXp(S.rewards));
   const unlocked = () => L.unlockedBy(S.rewards);
+  const napping = () => !!S.session && S.session.status !== 'ended' && S.session.status !== 'awake';
   const myAvatar = () => L.wearable(S.settings.avatar, unlocked());
   /* miniatura: o avatar usando um item, com o recorte que mostra melhor aquela parte */
   const VIEWS = { head: '30 28 140 140', eyes: '45 55 110 110', mouth: '48 70 104 104', extra: '45 62 110 110', hair: '18 4 164 164', outfit: '24 80 152 120', glasses: '40 48 120 120', hat: '14 -2 172 172', bg: '0 0 200 200' };
@@ -67,7 +68,7 @@
       const scale = Math.max(S.settings.goal, ...wr.map(r => r.minutes));
       const daily = L.missionsFor(S.records, 'daily', t);
       return `
-      <header class="top home-top"><button class="me" data-act="avatar" aria-label="Editar seu avatar">${Avatar.svg(myAvatar(), { cls: 'live' })}<i>${icon('edit')}</i></button><div class="grow"><p class="date">${cap(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
+      <header class="top home-top"><button class="me" data-act="avatar" aria-label="Editar seu avatar">${Avatar.svg(myAvatar(), napping() ? { cls: 'asleep', sleep: true } : { cls: 'live' })}<i>${icon('edit')}</i></button><div class="grow"><p class="date">${cap(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
         <h1>${hello}${S.settings.name ? `, ${esc(S.settings.name)}` : ''}</h1></div></header>
       <button class="bubble-btn" data-act="bubble"><span class="orbs"><i></i><i></i><i></i></span><span class="grow"><b>Bolha de Sonhos</b><small>${S.friends.length ? plural(S.friends.length, 'amigo na sua bolha', 'amigos na sua bolha') : 'Convide um amigo'}</small></span>${icon('right')}</button>
       ${sleepCard()}
