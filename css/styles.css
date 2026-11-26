@@ -107,7 +107,7 @@ i.low{background:linear-gradient(#a78bfa,#6d28d9)!important}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;font-size:.74rem;color:var(--muted)}
 .legend span{display:flex;align-items:center;gap:6px}
 .legend i{width:9px;height:9px;border-radius:4px;background:#6b7394}
-.legend i.line{width:16px;height:0;border-radius:0;border-top:2px dashed var(--text);background:none}
+.legend i.line{width:16px;height:0;border-radius:0;border-top:2px dashed var(--text);border-bottom:0;padding:0;background:none}
 
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat{padding:16px;gap:2px;border-radius:20px}
@@ -242,10 +242,29 @@ fieldset{border:0}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.confetti{display:none}}
 
 /* gráfico de linha */
-.chart .ln{fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;animation:draw 1.4s ease-in-out backwards}
-@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
-.chart .area{animation:fade .8s .8s backwards}
-.chart .dot{stroke:var(--solid);stroke-width:1.5;transform-box:fill-box;transform-origin:center;animation:pop .35s backwards}
+/* o brilho é feito com traços sobrepostos, que pesam menos que filtros */
+.chart .ln{fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.chart .ln.halo{stroke-width:13;opacity:.13}.chart .ln.glow{stroke-width:7;opacity:.3}.chart .ln.core{stroke-width:3.2}
+.chart .area,.chart .comet,.chart .pt,.chart .zone{pointer-events:none}
+.chart .pt .mark{stroke:var(--solid);stroke-width:1.2;fill:#a78bfa;transform-box:fill-box;transform-origin:center}
+.chart .pt.met .mark{fill:#fde047;stroke:#f59e0b}
+.chart .pt .boom{fill:none;stroke:#a78bfa;stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center}
+.chart .pt.met .boom{stroke:#fde047}
+.chart .crown{font-size:13px}
+.chart .pt.wait{opacity:0}
+.chart .pt.lit .mark{animation:starpop .55s cubic-bezier(.2,1.8,.4,1) backwards}
+.chart .pt.lit .boom{animation:boom .7s ease-out}
+.chart .pt.lit.last .boom{animation:boom 1s ease-out 4}
+.chart .pt.lit .crown{animation:fade .6s .3s backwards}
+@keyframes starpop{from{transform:scale(0) rotate(-140deg)}}
+@keyframes boom{0%{opacity:1;transform:scale(.4)}100%{opacity:0;transform:scale(3.4)}}
+.chart-card{border-color:rgba(139,92,246,.45);background:linear-gradient(165deg,rgba(34,211,238,.1),rgba(168,85,247,.13) 55%,transparent),var(--card)}
+.period b.big{font-size:1.6rem;background:linear-gradient(90deg,#22d3ee,#818cf8,#f472b6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.hl{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:99px;font-size:.82rem;font-weight:600;background:var(--soft);border:1px solid var(--line)}
+.hl.fire{border-color:#fb923c;background:rgba(251,146,60,.18)}.hl.gold{border-color:#facc15;background:rgba(250,204,21,.14)}.hl.up{border-color:#34d399;background:rgba(52,211,153,.16)}
+.done-play .hl{animation:chip .45s calc(var(--i) * .1s) cubic-bezier(.2,1.6,.4,1) backwards}
+@keyframes chip{from{opacity:0;transform:scale(.5)}}
 
 /* comemoração */
 .flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 40%,var(--a),var(--b) 35%,transparent 70%);opacity:0;animation:flash .8s ease-out}

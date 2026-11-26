@@ -197,6 +197,14 @@
     };
   };
 
+  /* noites seguidas na meta até hoje (ou até ontem, se hoje ainda não foi anotado) */
+  const metStreak = (records, now = today()) => {
+    const by = new Map(records.map(r => [r.date, r]));
+    let d = by.has(now) ? now : addDays(now, -1), n = 0;
+    while (by.has(d) && met(by.get(d))) { n++; d = addDays(d, -1); }
+    return n;
+  };
+
   const totalXp = rewards => rewards.reduce((s, r) => s + r.xp, 0);
 
   const stats = records => {
@@ -389,7 +397,7 @@
     iso, parse, validDate, addDays, today, weekStart, weekDays, monthKey, daysInMonth, monthDays, fmtDur,
     AGES, age, goalLimits, met, hasDetails, longestStreak, MISSIONS, MEDALS, LEVELS, levelInfo,
     missionsFor, evaluate, totalXp, stats, cleanRecord, cleanSettings, between, parseBackup,
-    MAX_DAY, TIMER_MAX, checkEntry, expire, reminderFor, makeInvite, parseInvite, cleanFriend, weekStats, isLate, eligible, medalProgress, revocable, addNap, timing, toClock, clock, startSession, sessionAction, sessionSummary, sessionNotice,
+    metStreak, MAX_DAY, TIMER_MAX, checkEntry, expire, reminderFor, makeInvite, parseInvite, cleanFriend, weekStats, isLate, eligible, medalProgress, revocable, addNap, timing, toClock, clock, startSession, sessionAction, sessionSummary, sessionNotice,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Logic = api;

@@ -114,12 +114,13 @@
       const label = S.period === 'mes' ? cap(fmtDate(`${S.progMonth}-01`, { month: 'long', year: 'numeric' })) : `Últimos ${S.period} dias`;
       return `${header('Progresso', 'Sua evolução ao longo do tempo')}
       ${seg('period', [['7', '7 dias'], ['30', '30 dias'], ['mes', 'Mensal']], S.period)}
-      <section class="card">
+      <section class="card chart-card">
         ${S.period === 'mes' ? `<div class="month-nav"><button class="icon-btn" data-act="prog-prev" aria-label="Mês anterior">${icon('left')}</button><h3>${label}</h3><button class="icon-btn" data-act="prog-next" aria-label="Próximo mês" ${S.progMonth >= L.monthKey(t) ? 'disabled' : ''}>${icon('right')}</button></div>`
           : `<h3>${label}</h3>`}
-        ${pr.length ? `<div class="row between period"><div><small>Média</small><b>${L.fmtDur(ps.avg)}</b></div><div><small>Noites</small><b>${ps.count}</b></div><div><small>Na meta</small><b>${ps.metCount} de ${ps.count}</b></div></div>
+        ${pr.length ? `<div class="row between period"><div><small>Média</small><b class="big" id="avg" data-min="${ps.avg}">${L.fmtDur(ps.avg)}</b></div><div><small>Noites</small><b>${ps.count}</b></div><div><small>Na meta</small><b>${ps.metCount} de ${ps.count}</b></div></div>
           ${chart(days)}<p class="readout" id="readout" aria-live="polite">Toque no gráfico para ver os detalhes</p>
-          <div class="legend"><span><i class="met"></i>Meta atingida</span><span><i class="low"></i>Abaixo</span><span><i class="line"></i>Meta atual</span></div>`
+          <div class="legend"><span>⭐ Meta atingida</span><span><i class="low"></i>Abaixo</span><span><i class="line"></i>Meta atual</span></div>
+          ${highlights(days, ps)}<button class="btn ghost small" data-act="replay">▶ Ver de novo</button>`
           : '<div class="empty small"><p>Nenhum registro neste período.</p><button class="btn ghost" data-act="register">Registrar sono</button></div>'}
       </section>
       ${timingCard(days)}
@@ -184,7 +185,7 @@
         <button class="btn ghost block" data-act="export">${icon('download')} Exportar registros</button>
         <button class="btn ghost block" data-act="import">${icon('upload')} Importar backup</button>
         <input type="file" id="file" accept=".json,application/json" hidden></section>
-      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.4.</p>
+      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.5.</p>
         <p class="muted">${icon('shield')} Sem conta, sem servidor e sem rastreamento. Funciona offline depois de instalado. Dados só saem do aparelho quando você envia um convite, imagem ou backup.</p>
         <p class="muted">As sugestões de meta seguem as faixas da National Sleep Foundation. O NOX não é um dispositivo médico; se o sono estiver preocupando você, converse com um profissional de saúde.</p></section>
       <button class="btn danger block" data-act="wipe">${icon('trash')} Apagar todos os dados</button>`;
@@ -274,30 +275,101 @@
 
   const stat = (label, value, sub = '') => `<div class="card stat"><small>${label}</small><b>${value}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
 
+  const star = r => Array.from({ length: 10 }, (_, i) => {
+    const a = Math.PI * i / 5 - Math.PI / 2, d = i % 2 ? r * .45 : r;
+    return `${(Math.cos(a) * d).toFixed(1)},${(Math.sin(a) * d).toFixed(1)}`;
+  }).join(' ');
+
   const chart = days => {
-    const W = 340, H = 200, x0 = 26, y0 = 8, ph = 164, pw = W - x0 - 2;
-    const goal = S.settings.goal;
-    const top = Math.ceil(Math.max(goal + 60, ...days.map(d => record(d)?.minutes || 0)) / 180) * 180;
-    const y = m => y0 + ph - m / top * ph, step = pw / days.length;
-    let out = '', hits = '';
-    for (let m = 0; m <= top; m += 180) out += `<line class="gridline" x1="${x0}" x2="${W}" y1="${y(m)}" y2="${y(m)}"/><text x="0" y="${y(m) + 3}">${m / 60}h</text>`;
+    const W = 340, H = 220, x0 = 26, y0 = 20, ph = 174, pw = W - x0 - 8;
+    const goal = S.settings.goal, values = days.map(d => record(d)?.minutes).filter(Boolean);
+    // a escala acompanha os dados, para cada variação aparecer
+    const lo = Math.max(0, Math.floor((Math.min(goal, ...values) - 60) / 60) * 60), hi = Math.ceil((Math.max(goal, ...values) + 45) / 60) * 60;
+    const y = m => y0 + ph - (m - lo) / (hi - lo) * ph, step = pw / days.length, gap = Math.ceil((hi - lo) / 300) * 60;
+    let out = `<rect class="zone" x="${x0}" y="${y0 - 8}" width="${W - x0}" height="${y(goal) - y0 + 8}" fill="url(#gz)"/>`, hits = '';
+    for (let m = lo; m <= hi; m += gap) out += `<line class="gridline" x1="${x0}" x2="${W}" y1="${y(m)}" y2="${y(m)}"/><text x="0" y="${y(m) + 3}">${m / 60}h</text>`;
     const pts = [];
     days.forEach((d, i) => {
       const r = record(d), cx = x0 + step * i + step / 2;
-      if (r) pts.push({ x: cx, y: y(r.minutes), met: L.met(r) });
+      if (r) pts.push({ x: cx, y: y(r.minutes), met: L.met(r), min: r.minutes });
       const show = days.length <= 7 || (S.period === 'mes' ? i % 5 === 0 : (days.length - 1 - i) % 5 === 0);
-      if (show) out += `<text text-anchor="middle" x="${cx}" y="${H - 6}">${days.length <= 7 ? ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][L.parse(d).getDay()] : Number(d.slice(8))}</text>`;
-      const tip = `${fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' })}: ${r ? `${L.fmtDur(r.minutes)} (meta ${L.fmtDur(r.goal)})` : 'sem registro'}`;
+      if (show) out += `<text text-anchor="middle" x="${cx}" y="${H - 5}">${days.length <= 7 ? ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][L.parse(d).getDay()] : Number(d.slice(8))}</text>`;
+      const tip = `${fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' })}: ${r ? `${L.fmtDur(r.minutes)} (meta ${L.fmtDur(r.goal)})${L.met(r) ? ' ⭐' : ''}` : 'sem registro'}`;
       hits += `<rect class="hit" data-tip="${tip}" x="${x0 + step * i}" y="${y0}" width="${step}" height="${ph}"/>`;
     });
-    // a linha liga as noites registradas; os pontos mostram onde há dado de verdade
-    const path = pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-    if (pts.length > 1) out += `<path class="area" fill="url(#ga)" d="${path} L${pts[pts.length - 1].x} ${y(0)} L${pts[0].x} ${y(0)}Z"/><path class="ln" pathLength="1" stroke="url(#gline)" d="${path}"/>`;
-    out += pts.map((p, i) => `<circle class="dot" cx="${p.x}" cy="${p.y}" r="${days.length > 7 ? 3 : 4.5}" fill="${p.met ? '#22d3ee' : '#a78bfa'}" style="animation-delay:${(pts.length > 1 ? i / (pts.length - 1) * 1.3 : 0).toFixed(2)}s"/>`).join('');
-    out += `<line class="goal" x1="${x0}" x2="${W}" y1="${y(goal)}" y2="${y(goal)}"/><text class="goal-t" text-anchor="end" x="${W}" y="${y(goal) - 5}">Meta ${L.fmtDur(goal)}</text>`;
-    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de linha das horas dormidas, com linha da meta"><defs>
-      <linearGradient id="gline" gradientUnits="userSpaceOnUse" x1="${x0}" y1="0" x2="${W}" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset=".55" stop-color="#5b7cfa"/><stop offset="1" stop-color="#c084fc"/></linearGradient>
-      <linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c5cf6" stop-opacity=".35"/><stop offset="1" stop-color="#7c5cf6" stop-opacity="0"/></linearGradient></defs>${out}${hits}</svg>`;
+    // curva suave que passa exatamente pelos pontos, sem criar picos que não existem
+    const path = pts.map((p, i) => {
+      if (!i) return `M${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
+      const q = pts[i - 1], mx = ((p.x + q.x) / 2).toFixed(1);
+      return `C${mx} ${q.y.toFixed(1)} ${mx} ${p.y.toFixed(1)} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
+    }).join(' ');
+    out += `<line class="goal" x1="${x0}" x2="${W}" y1="${y(goal)}" y2="${y(goal)}"/><text class="goal-t" x="${x0 + 4}" y="${y(goal) - 5}">Meta ${L.fmtDur(goal)}</text>`;
+    if (pts.length > 1) out += `<path class="area" fill="url(#ga)" d="${path} L${pts[pts.length - 1].x} ${y(lo)} L${pts[0].x} ${y(lo)}Z"/>${['halo', 'glow', 'core'].map(c => `<path class="ln ${c}" stroke="url(#gline)" d="${path}"/>`).join('')}`;
+    const small = days.length > 7, best = pts.reduce((a, b) => !a || b.min > a.min ? b : a, null);
+    out += pts.map((p, i) => `<g class="pt ${p.met ? 'met' : 'low'} ${i === pts.length - 1 ? 'last' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})" data-x="${p.x.toFixed(1)}">
+      <circle class="boom" r="${small ? 5 : 8}"/>${p.met ? `<polygon class="mark" points="${star(small ? 5.5 : 9)}"/>` : `<circle class="mark" r="${small ? 3 : 5}"/>`}
+      ${p === best && pts.length > 2 ? `<text class="crown" text-anchor="middle" y="${small ? -9 : -14}">👑</text>` : ''}</g>`).join('');
+    if (pts.length > 1) out += '<g class="comet" opacity="0"><circle r="11" fill="#67e8f9" opacity=".22"/><circle r="6" fill="#a5f3fc" opacity=".6"/><circle r="3" fill="#fff"/></g>';
+    return `<svg class="chart" id="linechart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de linha das horas dormidas, com linha da meta"><defs>
+      <linearGradient id="gline" gradientUnits="userSpaceOnUse" x1="${x0}" y1="0" x2="${W}" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset=".5" stop-color="#818cf8"/><stop offset="1" stop-color="#f472b6"/></linearGradient>
+      <linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b5cf6" stop-opacity=".5"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></linearGradient>
+      <linearGradient id="gz" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22d3ee" stop-opacity="0"/><stop offset="1" stop-color="#22d3ee" stop-opacity=".16"/></linearGradient></defs>${out}${hits}</svg>`;
+  };
+
+  const highlights = (days, ps) => {
+    const streak = L.metStreak(S.records), chips = [];
+    if (streak) chips.push(['fire', '🔥', plural(streak, 'noite seguida na meta', 'noites seguidas na meta')]);
+    if (ps.metCount) chips.push(['gold', '⭐', plural(ps.metCount, 'estrela neste período', 'estrelas neste período')]);
+    if (ps.count > 2) chips.push(['crown', '👑', `Maior noite: ${L.fmtDur(ps.max.minutes)}`]);
+    // compara só quando os dois períodos têm dados suficientes
+    const prev = S.period === 'mes' ? L.monthDays(shiftMonth(S.progMonth, -1)) : days.map(d => L.addDays(d, -days.length));
+    const before = L.stats(prev.map(record).filter(Boolean));
+    if (ps.count >= 3 && before.count >= 3) {
+      const diff = Math.round(ps.avg - before.avg);
+      if (diff > 0) chips.push(['up', '🚀', `+${diff} min na média que no período anterior`]);
+      else chips.push(['', '🌙', `Média do período anterior: ${L.fmtDur(before.avg)}`]);
+    }
+    if (!streak) chips.push(['', '✨', 'Alcance a meta e acenda uma estrela']);
+    return `<div class="chips">${chips.map(([c, e, t], i) => `<span class="hl ${c}" style="--i:${i}"><b>${e}</b>${t}</span>`).join('')}</div>`;
+  };
+
+  /* A linha se desenha com um cometa na ponta; cada noite acende quando ele chega. */
+  let chartRun = 0;
+  const playChart = () => {
+    const svg = $('#linechart');
+    if (!svg || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const run = ++chartRun, lines = $$('.ln', svg), comet = $('.comet', svg), area = $('.area', svg), avg = $('#avg');
+    const pts = $$('.pt', svg), len = lines.length ? lines[0].getTotalLength() : 0;
+    pts.forEach(p => p.classList.add('wait'));
+    lines.forEach(l => { l.style.strokeDasharray = `${len} ${len}`; l.style.strokeDashoffset = len; });
+    if (area) area.style.opacity = 0;
+    let stars = 0, start = null;
+    const duration = Math.min(2600, 900 + pts.length * 150);
+    const frame = now => {
+      if (run !== chartRun || !svg.isConnected) return;
+      start = start ?? now + 150;
+      const t = Math.min(1, Math.max(0, (now - start) / duration)), e = t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      let x = e * 340;
+      if (len) {
+        const at = lines[0].getPointAtLength(len * e);
+        x = at.x;
+        lines.forEach(l => { l.style.strokeDashoffset = len * (1 - e); });
+        comet.setAttribute('transform', `translate(${at.x} ${at.y})`);
+        comet.setAttribute('opacity', t > 0 && t < 1 ? 1 : 0);
+        area.style.opacity = e;
+      }
+      pts.forEach(p => {
+        if (!p.classList.contains('wait') || (t < 1 && Number(p.dataset.x) > x + .5) || t === 0) return;
+        p.classList.replace('wait', 'lit');
+        if (p.classList.contains('met')) tick(stars++);
+      });
+      if (avg) avg.textContent = L.fmtDur(Number(avg.dataset.min) * e);
+      if (t < 1) return requestAnimationFrame(frame);
+      svg.closest('.card').classList.add('done-play');
+      if (stars && S.settings.sounds) navigator.vibrate?.(35);
+    };
+    svg.closest('.card').classList.remove('done-play');
+    requestAnimationFrame(frame);
   };
 
   const timingCard = days => {
@@ -377,6 +449,7 @@
     $$('#nav button').forEach(b => { const on = b.dataset.v === S.tab; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
     $('#nav').style.setProperty('--i', TABS.findIndex(t => t[0] === S.tab));
     window.scrollTo(0, animate ? 0 : y);
+    if (animate && S.tab === 'progresso') playChart();
     const f = $('#file');
     if (f) f.onchange = () => { if (f.files[0]) importFile(f.files[0]); f.value = ''; };
   };
@@ -436,6 +509,17 @@
   const celebrations = [];
   /* som curto e vibração; nunca travam a tela se o aparelho não permitir */
   let audio;
+  const tick = n => {
+    if (!S.settings.sounds) return;
+    try {
+      audio = audio || new AudioContext();
+      audio.resume();
+      const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+      o.frequency.value = 520 * 2 ** (Math.min(n, 18) / 12); // cada estrela soa um pouco mais aguda
+      g.gain.setValueAtTime(.07, t); g.gain.exponentialRampToValueAtTime(.0001, t + .18);
+      o.connect(g).connect(audio.destination); o.start(t); o.stop(t + .2);
+    } catch { /* sem som neste aparelho */ }
+  };
   const fanfare = big => {
     if (!S.settings.sounds) return;
     try {
@@ -804,9 +888,9 @@
     'goto-missions': () => { S.achTab = 'missoes'; go('conquistas'); },
     'cal-prev': () => { S.calMonth = shiftMonth(S.calMonth, -1); render(); },
     'cal-next': () => { S.calMonth = shiftMonth(S.calMonth, 1); render(); },
-    'prog-prev': () => { S.progMonth = shiftMonth(S.progMonth, -1); render(); },
-    'prog-next': () => { S.progMonth = shiftMonth(S.progMonth, 1); render(); },
-    period: v => { S.period = v; render(); }, ach: v => { S.achTab = v; render(); },
+    'prog-prev': () => { S.progMonth = shiftMonth(S.progMonth, -1); render(); playChart(); },
+    'prog-next': () => { S.progMonth = shiftMonth(S.progMonth, 1); render(); playChart(); },
+    period: v => { S.period = v; render(); playChart(); }, replay: () => { $('.chart-card').scrollIntoView({ block: 'start' }); playChart(); }, ach: v => { S.achTab = v; render(); },
     medal: v => {
       const m = L.MEDALS.find(x => x.id === v), r = reward(`a:${v}`), p = L.medalProgress(m, S.records);
       openSheet(`<div class="center ${r ? '' : 'locked'}">${medal(m, !!r)}<h2>${m.name}</h2><p class="muted">${m.desc}</p><p class="xp">+${m.xp} XP</p>
