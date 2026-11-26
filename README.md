@@ -14,7 +14,7 @@ O app precisa estar em um endereço `https://` para poder ser instalado. Abrir o
 A hospedagem só entrega os arquivos do app. Seus registros não são enviados para ela.
 
 ## Modo Vou dormir
-Toque em "Vou dormir" na tela inicial. A notificação traz os botões de acordar e pausar. Ao encerrar, o NOX mostra o resultado para conferir antes de salvar. Os segundos do cronômetro aparecem só dentro do app.
+Toque em "Vou dormir" na tela inicial. A notificação traz os botões de acordar e pausar e volta se for dispensada enquanto o cronômetro estiver ligado. Ao encerrar, o NOX mostra o resultado para conferir antes de salvar. Os segundos do cronômetro aparecem só dentro do app.
 
 ## XP e correções
 - Noites anotadas com mais de 3 dias de atraso não valem XP.

@@ -178,7 +178,7 @@
         <button class="btn ghost block" data-act="export">${icon('download')} Exportar registros</button>
         <button class="btn ghost block" data-act="import">${icon('upload')} Importar backup</button>
         <input type="file" id="file" accept=".json,application/json" hidden></section>
-      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.2.</p>
+      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.3.</p>
         <p class="muted">${icon('shield')} Sem conta, sem servidor e sem rastreamento. Funciona offline depois de instalado.</p>
         <p class="muted">As sugestões de meta seguem as faixas da National Sleep Foundation. O NOX não é um dispositivo médico; se o sono estiver preocupando você, converse com um profissional de saúde.</p></section>
       <button class="btn danger block" data-act="wipe">${icon('trash')} Apagar todos os dados</button>`;

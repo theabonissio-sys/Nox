@@ -1,6 +1,6 @@
 /* Offline: guarda o app no aparelho. Ao publicar uma mudança, troque o número da versão. */
 importScripts('js/logic.js', 'js/db.js');
-const CACHE = 'nox-v3';
+const CACHE = 'nox-v4';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'css/styles.css', 'js/logic.js', 'js/db.js', 'js/icons.js', 'js/share.js', 'js/app.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/badge.png'];
 
 self.addEventListener('install', e => {
@@ -31,18 +31,30 @@ const showApp = async () => {
   return open.focus();
 };
 
+const showNotice = session => {
+  const n = Logic.sessionNotice(session);
+  return self.registration.showNotification(n.title, n.options);
+};
+
+/* Os botões agem na própria notificação. O app só abre ao tocar nela ou em "Conferir e salvar". */
 self.addEventListener('notificationclick', e => {
   e.waitUntil((async () => {
-    if (!e.action) { e.notification.close(); return showApp(); }
+    if (!e.action || e.action === 'review') return showApp();
     await DB.open();
     const session = await DB.updateSession(s => Logic.sessionAction(s, e.action));
-    if (!session || session.status === 'ended') {
-      e.notification.close();
-      return showApp();
-    }
-    const n = Logic.sessionNotice(session);
-    await self.registration.showNotification(n.title, n.options);
+    if (!session) return e.notification.close();
+    await showNotice(session);
     const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     list.forEach(c => c.postMessage('nox-session'));
+  })());
+});
+
+/* Se a notificação for arrastada para fora com o cronômetro ligado, ela volta. */
+self.addEventListener('notificationclose', e => {
+  if (e.notification.tag !== 'nox-sleep') return;
+  e.waitUntil((async () => {
+    await DB.open();
+    const { session } = await DB.load();
+    if (session && session.status !== 'ended') await showNotice(session);
   })());
 });

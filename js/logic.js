@@ -234,14 +234,23 @@
     };
   };
   const sessionNotice = s => {
+    const base = { tag: 'nox-sleep', icon: 'icons/icon-192.png', badge: 'icons/badge.png', silent: true };
+    if (s.status === 'ended') {
+      return {
+        title: 'Cronômetro parado ☀️',
+        options: {
+          ...base, body: `${fmtDur(sessionSummary(s).minutes)} de sono. Toque para conferir e salvar.`, timestamp: s.end,
+          actions: [{ action: 'review', title: 'Conferir e salvar' }, { action: 'undo', title: 'Continuar' }],
+        },
+      };
+    }
     const awake = s.status === 'awake';
     const since = awake ? s.pauses[s.pauses.length - 1].from : s.start;
     return {
       title: awake ? 'Acordado no meio da noite' : 'Cronômetro de sono ligado 🌙',
       options: {
         body: awake ? `Pausado às ${clock(since)}. Toque quando voltar a dormir.` : `Começou às ${clock(s.start)}. Toque em Acordei quando levantar.`,
-        tag: 'nox-sleep', icon: 'icons/icon-192.png', badge: 'icons/badge.png', timestamp: since,
-        requireInteraction: true, silent: true,
+        ...base, timestamp: since, requireInteraction: true,
         actions: awake ? [{ action: 'resume', title: 'Voltei a dormir' }, { action: 'wake', title: 'Levantei' }]
           : [{ action: 'wake', title: 'Acordei' }, { action: 'pause', title: 'Acordei de noite' }],
       },
