@@ -343,3 +343,7 @@ fieldset{border:0}
 .dream b{font-size:.82rem;max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dream span{font-weight:700}.dream small{font-size:.68rem;opacity:.85}
 @keyframes bob{50%{transform:translateY(-7px)}}
 @media (prefers-reduced-motion:reduce){.flash,.spark,.wave,.rays{display:none}}
+
+.install{border-color:rgba(34,211,238,.5)}
+.app-ico{width:44px;height:44px;border-radius:14px;background:var(--grad);display:grid;place-items:center;color:#fff;flex:none}
+.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:12px;text-align:left}

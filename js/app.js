@@ -65,7 +65,7 @@
       <header class="top"><div><p class="date">${cap(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
         <h1>${hello}${S.settings.name ? `, ${esc(S.settings.name)}` : ''}</h1></div><span class="brand">NOX</span></header>
       <button class="bubble-btn" data-act="bubble"><span class="orbs"><i></i><i></i><i></i></span><span class="grow"><b>Bolha de Sonhos</b><small>${S.friends.length ? plural(S.friends.length, 'amigo na sua bolha', 'amigos na sua bolha') : 'Convide um amigo'}</small></span>${icon('right')}</button>
-      ${sleepCard()}
+      ${installCard()}${sleepCard()}
       <section class="card hero">
         <p class="eyebrow">SEU SONO${when ? ` · ${when}` : ''}</p>
         ${ring(pct, last ? `<strong>${L.fmtDur(last.minutes)}</strong><span>Meta: ${L.fmtDur(last.goal)}</span><em>${Math.round(pct * 100)}%</em>`
@@ -174,14 +174,15 @@
       <section class="card"><h3>Lembrete diário</h3>${seg('reminders', [['on', 'Ligado'], ['off', 'Desligado']], s.reminders ? 'on' : 'off')}
       <section class="card"><h3>Sons e vibração nas conquistas</h3>${seg('sounds', [['on', 'Ligado'], ['off', 'Desligado']], s.sounds ? 'on' : 'off')}</section>
       <section class="card"><h3>Aparência</h3>${seg('theme', [['dark', 'Escuro'], ['light', 'Claro']], s.theme)}</section>
-      ${S.installEvt ? `<section class="card"><h3>Instalar</h3><p class="muted">Coloque o NOX na tela inicial e use offline.</p><button class="btn primary block" data-act="install">${icon('download')} Instalar aplicativo</button></section>` : ''}
+      <section class="card"><h3>Instalar e compartilhar</h3>${installed() ? '' : `<button class="btn primary block" data-act="install">${icon('download')} Instalar no celular</button>`}
+        <button class="btn ghost block" data-act="share-app">${icon('share')} Enviar o NOX para um amigo</button></section>
       <section class="card"><h3>Backup</h3><p class="muted">Seus dados ficam só neste aparelho.</p>
         <p class="note">${s.lastBackup ? `Último backup: ${fmtDate(s.lastBackup)}.` : 'Nenhum backup feito ainda.'}</p>
         ${seg('autobackup', [['on', 'Automático'], ['off', 'Manual']], s.autoBackup ? 'on' : 'off')}
         <button class="btn ghost block" data-act="export">${icon('download')} Exportar registros</button>
         <button class="btn ghost block" data-act="import">${icon('upload')} Importar backup</button>
         <input type="file" id="file" accept=".json,application/json" hidden></section>
-      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Versão 2.0.</p>
+      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Versão 2.1.</p>
         <button class="btn ghost block" data-act="tour">${icon('sparkle')} Ver apresentação</button>
         <p class="muted">Não é um dispositivo médico.</p></section>
       <button class="btn danger block" data-act="wipe">${icon('trash')} Apagar todos os dados</button>`;
@@ -384,6 +385,13 @@
       <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Horários de dormir e acordar por noite">${out}</svg>
       </section>`;
   };
+
+  /* instalar: só aparece no navegador; depois de instalado, some */
+  const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const installCard = () => installed() || S.settings.installHide > L.today() ? '' :
+    `<section class="card install"><div class="row"><span class="app-ico">${icon('download')}</span><div class="grow"><h3>Instale o NOX</h3><p class="muted">Abre pelo ícone e funciona sem internet.</p></div></div>
+      <button class="btn primary block" data-act="install">${icon('download')} Instalar agora</button><button class="link" data-act="install-later">Agora não</button></section>`;
+  const appUrl = () => `${location.origin}${location.pathname}`;
 
   const backupCard = () => {
     const s = S.settings, t = L.today();
@@ -982,7 +990,20 @@
       navigator.storage?.persist?.().catch(() => {});
     },
     export: () => exportData(), import: () => $('#file').click(),
-    install: async () => { const e = S.installEvt; if (!e) return; S.installEvt = null; e.prompt(); await e.userChoice; render(); },
+    install: async () => {
+      const e = S.installEvt;
+      if (e) { S.installEvt = null; e.prompt(); const r = await e.userChoice.catch(() => null); if (r?.outcome === 'accepted') toast('NOX instalado', 'ok'); return render(); }
+      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      openSheet(`<h2>Instalar o NOX</h2><ol class="steps">${(ios
+        ? ['Abra este link no <b>Safari</b>.', 'Toque em <b>Compartilhar</b> (o quadrado com a seta).', 'Toque em <b>Adicionar à Tela de Início</b>.']
+        : ['Abra este link no <b>Chrome</b>.', 'Toque nos <b>três pontinhos</b> (⋮) no canto de cima.', 'Toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.']).map(x => `<li>${x}</li>`).join('')}</ol>`);
+    },
+    'install-later': async () => { if (await saveSettings({ installHide: L.addDays(L.today(), 7) })) render(); },
+    'share-app': async () => {
+      const data = { title: 'NOX', text: 'Instala o NOX, meu app de sono 🌙', url: appUrl() };
+      if (!navigator.share) return copy(data.url);
+      try { await navigator.share(data); } catch (e) { if (e.name !== 'AbortError') copy(data.url); }
+    },
     wipe: async () => {
       if (!await ask({ title: 'Apagar todos os dados?', text: 'Registros, XP, medalhas e configurações serão removidos deste aparelho. Não há como desfazer. Exporte um backup antes, se quiser guardá-los.', ok: 'Apagar tudo', danger: true, word: 'APAGAR' })) return;
       try {
@@ -1015,7 +1036,8 @@
     if (id === 'set-name') { if (intro) setup.name = value; else if (await saveSettings({ name: value })) toast('Nome salvo', 'ok'); }
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
-  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installEvt = e; if (S.tab === 'config') render(); });
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installEvt = e; });
+  window.addEventListener('appinstalled', () => { S.installEvt = null; toast('NOX instalado', 'ok'); render(); });
 
   /* recarrega ao voltar para o app: o dia pode ter mudado ou outra aba gravou */
   const refresh = async () => {
