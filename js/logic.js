@@ -244,61 +244,6 @@
     return (m(wake) - m(bed) + 1440) % 1440 || null;
   };
 
-  /* ---------- avatar ---------- */
-  /* [id, nome, medalha que libera]. A primeira opção de cada parte é a padrão. */
-  const AVATAR_PARTS = {
-    head: [['redondo', 'Redondo'], ['oval', 'Oval'], ['quadrado', 'Quadrado'], ['queixo', 'Queixo fino']],
-    hair: [['curto', 'Curto'], ['topete', 'Topete'], ['cacheado', 'Cacheado'], ['afro', 'Black power'], ['longo', 'Longo'], ['chanel', 'Chanel'], ['coque', 'Coque'], ['rabo', 'Maria-chiquinha'], ['trancas', 'Tranças'], ['espetado', 'Espetado'], ['moicano', 'Moicano'], ['careca', 'Sem cabelo']],
-    eyes: [['normal', 'Normais'], ['grandes', 'Grandes'], ['felizes', 'Felizes'], ['piscando', 'Cílios'], ['sono', 'Com sono'], ['fechados', 'Fechados'], ['estrela', 'Estrelas', 'fresh']],
-    mouth: [['sorriso', 'Sorriso'], ['risada', 'Risada'], ['dentes', 'Dentes'], ['neutro', 'Tranquila'], ['uau', 'Uau'], ['lingua', 'Língua'], ['gatinho', 'Gatinho']],
-    extra: [['nada', 'Nada'], ['bochechas', 'Bochechas'], ['sardas', 'Sardas'], ['pinta', 'Pintinhas'], ['bigode', 'Bigode'], ['barba', 'Barba']],
-    outfit: [['camiseta', 'Camiseta'], ['moletom', 'Moletom'], ['listras', 'Listrada'], ['regata', 'Regata'], ['social', 'Camisa'], ['gola', 'Gola alta'], ['pijama', 'Pijama', 'week'], ['capa', 'Capa de herói', 'guardian'], ['terno', 'Terno e relógio', 'swiss']],
-    glasses: [['nada', 'Nenhum'], ['redondos', 'Redondos'], ['quadrados', 'Quadrados'], ['escuros', 'Escuros'], ['coracao', 'Corações', 'consist'], ['monoculo', 'Aro dourado', 'detail'], ['coruja', 'Coruja', 'early'], ['estrelas', 'Estrelas', 'weekend']],
-    hat: [['nada', 'Nenhum'], ['bone', 'Boné'], ['laco', 'Laço'], ['faixa', 'Faixa'], ['touca', 'Touca de dormir', 'first'], ['fone', 'Fones', 'streak'], ['explorador', 'Explorador', 'explorer'], ['coroa', 'Coroa', 'hundred'], ['aureola', 'Auréola', 'perfect']],
-    bg: [['roxo', 'Roxo'], ['azul', 'Azul'], ['ciano', 'Ciano'], ['rosa', 'Rosa'], ['verde', 'Verde'], ['laranja', 'Laranja'], ['lua', 'Noite de lua', 'moon3'], ['aurora', 'Aurora', 'month'], ['galaxia', 'Galáxia', 'galaxy']],
-  };
-  const AVATAR_COLORS = {
-    skin: ['#ffe0c7', '#f5c6a0', '#e2a876', '#c4844f', '#9c603a', '#6e422a'],
-    hairColor: ['#2a1f1b', '#5b3a24', '#a5652e', '#e9c46a', '#c2452d', '#9ca3af', '#7c5cf6', '#22b8d4', '#ec5fa8'],
-    outfitColor: ['#6366f1', '#22c3e0', '#ec4899', '#22c55e', '#f97316', '#ef4444', '#facc15', '#475569'],
-  };
-  const COLOR_DEFAULT = { skin: 1, hairColor: 1, outfitColor: 0 };
-
-  const cleanAvatar = a => {
-    if (!a || typeof a !== 'object') return null;
-    const out = {};
-    Object.entries(AVATAR_PARTS).forEach(([k, list]) => { out[k] = list.some(i => i[0] === a[k]) ? a[k] : list[0][0]; });
-    Object.entries(AVATAR_COLORS).forEach(([k, list]) => { out[k] = Number.isInteger(a[k]) && a[k] >= 0 && a[k] < list.length ? a[k] : COLOR_DEFAULT[k]; });
-    return out;
-  };
-  /* o que a medalha libera */
-  const avatarReward = medalId => {
-    for (const [part, list] of Object.entries(AVATAR_PARTS)) {
-      const item = list.find(i => i[2] === medalId);
-      if (item) return { part, id: item[0], name: item[1] };
-    }
-    return null;
-  };
-  const unlockedBy = rewards => new Set(rewards.filter(r => r.kind === 'medal').map(r => r.ref));
-  /* o que dá para vestir agora: item ainda travado volta para o padrão */
-  const wearable = (a, unlocked) => {
-    const out = cleanAvatar(a || {});
-    Object.entries(AVATAR_PARTS).forEach(([k, list]) => {
-      const need = list.find(i => i[0] === out[k])[2];
-      if (need && !unlocked.has(need)) out[k] = list[0][0];
-    });
-    return out;
-  };
-  const randomAvatar = (unlocked, rand = Math.random) => {
-    const pick = list => list[Math.floor(rand() * list.length)];
-    const out = {};
-    Object.entries(AVATAR_PARTS).forEach(([k, list]) => { out[k] = pick(list.filter(i => !i[2] || unlocked.has(i[2])))[0]; });
-    Object.entries(AVATAR_COLORS).forEach(([k, list]) => { out[k] = Math.floor(rand() * list.length); });
-    // enfeites aparecem de vez em quando, para o rosto não ficar escondido
-    ['extra', 'glasses', 'hat'].forEach(k => { if (rand() < .5) out[k] = AVATAR_PARTS[k][0][0]; });
-    return out;
-  };
-
   const idRe = /^[a-z0-9]{8,24}$/;
   const cleanSettings = s => {
     s = s || {};
@@ -310,7 +255,7 @@
       latency: Number.isInteger(s.latency) ? Math.min(60, Math.max(0, s.latency)) : 15,
       lastBackup: validDate(s.lastBackup) ? s.lastBackup : '', backupSnooze: validDate(s.backupSnooze) ? s.backupSnooze : '',
       reminders: s.reminders !== false, autoBackup: s.autoBackup !== false, sounds: s.sounds !== false,
-      friendId: idRe.test(s.friendId) ? s.friendId : '', avatar: cleanAvatar(s.avatar),
+      friendId: idRe.test(s.friendId) ? s.friendId : '',
     };
   };
 
@@ -395,13 +340,11 @@
     f.nights.slice(0, 14).forEach(n => {
       if (Array.isArray(n) && validDate(n[0]) && n[0] <= addDays(now, 1) && Number.isInteger(n[1]) && n[1] > 0 && n[1] <= TIMER_MAX && Number.isInteger(n[2]) && n[2] >= 240 && n[2] <= 900) nights.set(n[0], [n[0], n[1], n[2]]);
     });
-    const avatar = cleanAvatar(f.avatar);
-    return { id: f.id, name: String(f.name || '').trim().slice(0, 30) || 'Amigo', nights: [...nights.values()], at: validDate(f.at) ? f.at : now, ...(avatar ? { avatar } : {}) };
+    return { id: f.id, name: String(f.name || '').trim().slice(0, 30) || 'Amigo', nights: [...nights.values()], at: validDate(f.at) ? f.at : now };
   };
   const makeInvite = (settings, records, now = today()) => {
     const nights = records.filter(r => r.tm && r.date > addDays(now, -14) && r.date <= now).map(r => [r.date, r.tm, r.goal]);
-    const avatar = cleanAvatar(settings.avatar);
-    const json = JSON.stringify({ v: 1, id: settings.friendId, name: settings.name, nights, at: now, ...(avatar ? { avatar } : {}) });
+    const json = JSON.stringify({ v: 1, id: settings.friendId, name: settings.name, nights, at: now });
     return btoa(String.fromCharCode(...new TextEncoder().encode(json))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   };
   const parseInvite = (text, now = today()) => {
@@ -454,7 +397,7 @@
     iso, parse, validDate, addDays, today, weekStart, weekDays, monthKey, daysInMonth, monthDays, fmtDur,
     AGES, age, goalLimits, met, hasDetails, longestStreak, MISSIONS, MEDALS, LEVELS, levelInfo,
     missionsFor, evaluate, totalXp, stats, cleanRecord, cleanSettings, between, parseBackup,
-    AVATAR_PARTS, AVATAR_COLORS, cleanAvatar, avatarReward, unlockedBy, wearable, randomAvatar, metStreak, MAX_DAY, TIMER_MAX, checkEntry, expire, reminderFor, makeInvite, parseInvite, cleanFriend, weekStats, isLate, eligible, medalProgress, revocable, addNap, timing, toClock, clock, startSession, sessionAction, sessionSummary, sessionNotice,
+    metStreak, MAX_DAY, TIMER_MAX, checkEntry, expire, reminderFor, makeInvite, parseInvite, cleanFriend, weekStats, isLate, eligible, medalProgress, revocable, addNap, timing, toClock, clock, startSession, sessionAction, sessionSummary, sessionNotice,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Logic = api;
