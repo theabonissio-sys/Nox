@@ -166,6 +166,48 @@
       name: String(s.name || '').trim().slice(0, 30), age: a,
       goal: Number.isInteger(s.goal) ? Math.min(lim.max, Math.max(lim.min, s.goal)) : age(a).sug,
       theme: s.theme === 'light' ? 'light' : 'dark', onboarded: !!s.onboarded,
+      latency: Number.isInteger(s.latency) ? Math.min(60, Math.max(0, s.latency)) : 15,
+    };
+  };
+
+  /* ---------- modo "Vou dormir" ---------- */
+  const clock = ms => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const startSession = (latency, now = Date.now()) => ({ start: now, latency, status: 'sleeping', pauses: [] });
+  /* Transições inválidas (ex.: botão antigo de uma notificação) não mudam nada. */
+  const sessionAction = (s, action, now = Date.now()) => {
+    if (!s) return s;
+    const closed = () => s.pauses.map(p => p.to ? p : { ...p, to: now });
+    if (action === 'pause' && s.status === 'sleeping') return { ...s, status: 'awake', pauses: s.pauses.concat({ from: now, to: null }) };
+    if (action === 'resume' && s.status === 'awake') return { ...s, status: 'sleeping', pauses: closed() };
+    if (action === 'wake' && s.status !== 'ended') return { ...s, status: 'ended', end: now, wasAwake: s.status === 'awake', pauses: closed() };
+    if (action === 'undo' && s.status === 'ended') {
+      const { end, wasAwake, ...rest } = s;
+      return { ...rest, status: wasAwake ? 'awake' : 'sleeping', pauses: s.pauses.map((p, i) => wasAwake && i === s.pauses.length - 1 ? { ...p, to: null } : p) };
+    }
+    return s;
+  };
+  const sessionSummary = (s, now = Date.now()) => {
+    const end = s.end || now;
+    const elapsed = Math.max(0, end - s.start);
+    const awake = Math.round(s.pauses.reduce((t, p) => t + Math.max(0, (p.to || end) - p.from), 0) / 60000);
+    const total = Math.round(elapsed / 60000);
+    return {
+      elapsed, total, awake, latency: s.latency, minutes: Math.max(0, total - awake - s.latency),
+      date: iso(new Date(end)), bed: clock(s.start), wake: clock(end),
+    };
+  };
+  const sessionNotice = s => {
+    const awake = s.status === 'awake';
+    const since = awake ? s.pauses[s.pauses.length - 1].from : s.start;
+    return {
+      title: awake ? 'Acordado no meio da noite' : 'Cronômetro de sono ligado 🌙',
+      options: {
+        body: awake ? `Pausado às ${clock(since)}. Toque quando voltar a dormir.` : `Começou às ${clock(s.start)}. Toque em Acordei quando levantar.`,
+        tag: 'nox-sleep', icon: 'icons/icon-192.png', badge: 'icons/badge.png', timestamp: since,
+        requireInteraction: true, silent: true,
+        actions: awake ? [{ action: 'resume', title: 'Voltei a dormir' }, { action: 'wake', title: 'Levantei' }]
+          : [{ action: 'wake', title: 'Acordei' }, { action: 'pause', title: 'Acordei de noite' }],
+      },
     };
   };
 
@@ -201,6 +243,7 @@
     iso, parse, validDate, addDays, today, weekStart, weekDays, monthKey, daysInMonth, monthDays, fmtDur,
     AGES, age, goalLimits, met, hasDetails, longestStreak, MISSIONS, MEDALS, LEVELS, levelInfo,
     missionsFor, evaluate, totalXp, stats, cleanRecord, cleanSettings, between, parseBackup,
+    clock, startSession, sessionAction, sessionSummary, sessionNotice,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Logic = api;

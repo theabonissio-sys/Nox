@@ -13,7 +13,7 @@
   const TABS = [['inicio', 'Início', 'home'], ['calendario', 'Calendário', 'calendar'], ['progresso', 'Progresso', 'chart'], ['conquistas', 'Conquistas', 'trophy'], ['config', 'Ajustes', 'gear']];
 
   const S = {
-    records: [], rewards: [], settings: L.cleanSettings(), tab: 'inicio', day: L.today(),
+    records: [], rewards: [], settings: L.cleanSettings(), session: null, tab: 'inicio', day: L.today(),
     calMonth: L.monthKey(L.today()), progMonth: L.monthKey(L.today()), period: '7', achTab: 'missoes', installEvt: null,
   };
 
@@ -64,12 +64,14 @@
       return `
       <header class="top"><div><p class="date">${cap(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
         <h1>${hello}${S.settings.name ? `, ${esc(S.settings.name)}` : ''}</h1></div><span class="brand">NOX</span></header>
+      ${sleepCard()}
       <section class="card hero">
         <p class="eyebrow">SEU SONO${when ? ` · ${when}` : ''}</p>
         ${ring(pct, last ? `<strong>${L.fmtDur(last.minutes)}</strong><span>Meta: ${L.fmtDur(last.goal)}</span><em>${Math.round(pct * 100)}%</em>`
           : `<strong>—</strong><span>Meta: ${L.fmtDur(S.settings.goal)}</span><em>Sem registros</em>`)}
         <p class="msg">${message(last, last && last.date >= L.addDays(t, -1))}</p>
         <button class="btn primary block" data-act="register">${icon('plus')} REGISTRAR SONO</button>
+        ${S.session ? '' : `<button class="btn ghost block" data-act="sleep-start">${icon('moon')} Vou dormir</button>`}
       </section>
       ${levelCard()}
       <section class="card"><div class="row between"><h3>Sua semana</h3><span class="muted">${wr.length ? `Média ${L.fmtDur(L.stats(wr).avg)}` : 'Sem registros'}</span></div>
@@ -163,6 +165,11 @@
         <label>Como quer ser chamado?<input id="set-name" maxlength="30" value="${esc(s.name)}" placeholder="Seu nome (opcional)" autocomplete="off"></label>
         ${ageField(s.age)}${goalField(s.goal, s.age)}
         <p class="note">A nova meta vale para os próximos registros. Noites já salvas mantêm a meta da época.</p></section>
+      <section class="card form"><h3>Modo Vou dormir</h3>
+        <div class="goal"><span>Tempo para pegar no sono</span><div class="stepper">
+          <button type="button" class="icon-btn" data-act="latency" data-v="-5" aria-label="Diminuir 5 minutos">${icon('minus')}</button><b>${s.latency} min</b>
+          <button type="button" class="icon-btn" data-act="latency" data-v="5" aria-label="Aumentar 5 minutos">${icon('plus')}</button></div><small>Esse tempo é descontado do cronômetro.</small></div>
+        ${notifyState()}</section>
       <section class="card"><h3>Aparência</h3>${seg('theme', [['dark', 'Escuro'], ['light', 'Claro']], s.theme)}</section>
       ${S.installEvt ? `<section class="card"><h3>Instalar</h3><p class="muted">Coloque o NOX na tela inicial e use offline.</p><button class="btn primary block" data-act="install">${icon('download')} Instalar aplicativo</button></section>` : ''}
       <section class="card"><h3>Backup</h3><p class="muted">Seus dados ficam só neste aparelho. Exporte um arquivo de vez em quando para não perdê-los.</p>
@@ -174,6 +181,85 @@
         <p class="muted">As sugestões de meta seguem as faixas da National Sleep Foundation. O NOX não é um dispositivo médico; se o sono estiver preocupando você, converse com um profissional de saúde.</p></section>
       <button class="btn danger block" data-act="wipe">${icon('trash')} Apagar todos os dados</button>`;
     },
+  };
+
+  /* ---------- modo "Vou dormir" ---------- */
+  const timerText = ms => { const t = Math.floor(ms / 1000), p = n => String(n).padStart(2, '0'); return `${p(Math.floor(t / 3600))}:${p(Math.floor(t / 60) % 60)}:${p(t % 60)}`; };
+  const canNotify = () => 'Notification' in window && 'serviceWorker' in navigator && !!document.querySelector('link[rel=manifest]');
+
+  const sleepCard = () => {
+    const s = S.session;
+    if (!s) return '';
+    const sum = L.sessionSummary(s);
+    if (s.status === 'ended') return `<section class="card sleep"><p class="eyebrow">NOITE PRONTA PARA SALVAR</p><h2>${L.fmtDur(sum.minutes)} de sono</h2><p class="muted">Das ${sum.bed} às ${sum.wake}</p>
+      <button class="btn primary block" data-act="sleep-review">Conferir e salvar</button><button class="btn ghost block" data-act="sleep-undo">Continuar o cronômetro</button><button class="link" data-act="sleep-cancel">Descartar</button></section>`;
+    const awake = s.status === 'awake';
+    return `<section class="card sleep"><p class="eyebrow">${awake ? 'ACORDADO NO MEIO DA NOITE' : 'CRONÔMETRO DE SONO'}</p>
+      <strong class="timer" id="timer" role="timer">${timerText(sum.elapsed)}</strong>
+      <p class="muted">Começou às ${sum.bed}${sum.awake ? ` · ${sum.awake} min acordado` : ''}</p>
+      <button class="btn primary block" data-act="sleep-wake">${awake ? 'Levantei' : 'Acordei'}</button>
+      <button class="btn ghost block" data-act="${awake ? 'sleep-resume' : 'sleep-pause'}">${awake ? 'Voltei a dormir' : 'Acordei no meio da noite'}</button>
+      <button class="link" data-act="sleep-cancel">Cancelar cronômetro</button>
+      ${canNotify() && Notification.permission === 'granted' ? '' : '<p class="note">Sem notificação nesta tela. O cronômetro continua contando; abra o NOX quando acordar.</p>'}</section>`;
+  };
+
+  const notifyState = () => {
+    if (!canNotify()) return '<p class="note">As notificações funcionam no app instalado pelo site.</p>';
+    if (Notification.permission === 'granted') return '<p class="note">Notificações ativadas.</p>';
+    if (Notification.permission === 'denied') return '<p class="note warn">Notificações bloqueadas. Libere nas configurações do site no navegador.</p>';
+    return '<button class="btn ghost block" data-act="notify">Ativar notificações</button>';
+  };
+
+  /* mostra, atualiza ou remove a notificação conforme a sessão */
+  const syncNotice = async () => {
+    if (!canNotify() || Notification.permission !== 'granted') return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      if (S.session && S.session.status !== 'ended') {
+        const n = L.sessionNotice(S.session);
+        await reg.showNotification(n.title, n.options);
+      } else (await reg.getNotifications({ tag: 'nox-sleep' })).forEach(x => x.close());
+    } catch { /* o cronômetro funciona mesmo sem notificação */ }
+  };
+
+  const changeSession = async fn => {
+    try { S.session = await DB.updateSession(fn); }
+    catch { toast('Não foi possível salvar o cronômetro.', 'bad'); return false; }
+    render(); syncNotice(); return true;
+  };
+
+  const startSleep = async () => {
+    // o pedido de permissão precisa sair direto do toque
+    if (canNotify() && Notification.permission === 'default') await Notification.requestPermission();
+    if (await changeSession(cur => cur || L.startSession(S.settings.latency))) {
+      toast(canNotify() && Notification.permission === 'granted' ? 'Cronômetro ligado. Boa noite!' : 'Cronômetro ligado sem notificação. Abra o NOX ao acordar.', 'ok');
+    }
+  };
+
+  const reviewSleep = () => {
+    const s = S.session;
+    if (!s || s.status !== 'ended') return;
+    const sum = L.sessionSummary(s);
+    if (sum.total < 30) {
+      openSheet(`<h2>Foi bem rápido</h2><p class="muted">O cronômetro marcou ${sum.total} min. Quer descartar?</p>
+        <button class="btn primary block" data-act="sleep-undo">Continuar dormindo</button>
+        <button class="btn ghost block" data-act="sleep-form">Registrar mesmo assim</button>
+        <button class="btn danger block" data-act="sleep-discard">Descartar cronômetro</button>`);
+    } else openForm(sum.date, 'new', sum, sum);
+  };
+
+  const askAwake = () => {
+    const s = S.session;
+    if (!s || s.status !== 'sleeping' || L.sessionSummary(s).total < 30) return;
+    openSheet(`<h2>Você acordou?</h2><p class="muted">O cronômetro está ligado desde ${L.clock(s.start)}.</p>
+      <button class="btn primary block" data-act="sleep-wake">Acordei</button>
+      <button class="btn ghost block" data-act="close">Só olhei o celular</button>
+      <button class="btn ghost block" data-act="sleep-pause">Fiquei acordado no meio da noite</button>`);
+  };
+
+  const attend = () => {
+    if (!S.settings.onboarded || !$('#sheet').hidden || !$('#party').hidden) return;
+    if (S.session?.status === 'ended') reviewSleep(); else askAwake();
   };
 
   const stat = (label, value, sub = '') => `<div class="card stat"><small>${label}</small><b>${value}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
@@ -265,7 +351,7 @@
     document.body.classList.remove('locked');
     f();
   };
-  const closeSheet = () => { hideSheet(); if (history.state?.sheet) history.back(); };
+  const closeSheet = () => { const had = !!sheetClose; hideSheet(); if (had && history.state?.sheet) history.back(); };
   window.addEventListener('popstate', () => { if (!history.state?.sheet) hideSheet(); });
 
   const ask = ({ title, text, ok = 'Confirmar', cancel = 'Cancelar', danger, word }) => new Promise(resolve => {
@@ -299,12 +385,13 @@
   };
 
   /* ---------- gravação ---------- */
-  const saveRecord = async (rec, oldDate) => {
+  const saveRecord = async (rec, oldDate, endSession = false) => {
     const records = S.records.filter(r => r.date !== rec.date && r.date !== oldDate).concat(rec);
     const fresh = L.evaluate(records, S.rewards);
     const before = level().level;
-    await DB.commit({ put: [rec], remove: oldDate && oldDate !== rec.date ? oldDate : null, rewards: fresh });
+    await DB.commit({ put: [rec], remove: oldDate && oldDate !== rec.date ? oldDate : null, rewards: fresh, endSession });
     S.records = records; S.rewards = S.rewards.concat(fresh);
+    if (endSession) { S.session = null; syncNotice(); }
     render();
     const gained = L.totalXp(fresh), done = fresh.filter(r => r.kind === 'mission');
     toast(gained ? `Registro salvo · +${gained} XP${done.length ? ` · ${plural(done.length, 'missão concluída', 'missões concluídas')}` : ''}` : 'Registro salvo', 'ok');
@@ -317,13 +404,17 @@
     if (celebrations.length) setTimeout(nextCelebration, 450);
   };
 
-  const openForm = (date = L.today(), mode = 'new', draft = null) => {
+  const openForm = (date = L.today(), mode = 'new', draft = null, timer = null) => {
     const found = record(date);
-    const r = found || draft || {};
+    // vindo do cronômetro, os valores medidos valem; a qualidade já anotada é mantida
+    const r = timer ? { ...draft, minutes: timer.total > 960 ? null : timer.minutes, quality: found?.quality } : found || draft || {};
+    const replaceText = d => record(d) ? `Já existe um registro nesta data (${L.fmtDur(record(d).minutes)}). Salvar vai substituí-lo.` : '';
     const editing = mode === 'edit';
     const original = editing ? date : null;
-    const el = openSheet(`<h2>${found ? 'Editar noite' : 'Registrar sono'}</h2>
-      ${found && !editing ? '<p class="banner">Já existe um registro nesta data. Você está editando esse registro.</p>' : ''}
+    const el = openSheet(`<h2>${timer ? 'Confira sua noite' : found ? 'Editar noite' : 'Registrar sono'}</h2>
+      ${timer ? `<p class="banner">Cronômetro: ${L.fmtDur(timer.total)}, menos ${timer.latency} min para pegar no sono${timer.awake ? ` e ${timer.awake} min acordado` : ''}. Ajuste se precisar.</p>
+        ${timer.total > 960 ? '<p class="banner">O cronômetro passou de 16 horas. Corrija o horário em que você acordou.</p>' : ''}<p class="banner" id="replace" ${found ? '' : 'hidden'}>${replaceText(date)}</p>`
+        : found && !editing ? '<p class="banner">Já existe um registro nesta data. Você está editando esse registro.</p>' : ''}
       <form class="form" novalidate>
         <label>Data em que você acordou<input type="date" name="date" value="${date}" max="${L.today()}" required></label>
         <div class="two"><label>Horas dormidas<input type="number" name="h" inputmode="numeric" min="0" max="24" placeholder="7" value="${r.minutes != null ? Math.floor(r.minutes / 60) : ''}"></label>
@@ -334,7 +425,8 @@
         <fieldset><legend>Qualidade do sono <em>opcional</em></legend><div class="quality">${QUALITY.map((q, i) => `<button type="button" data-q="${i + 1}" class="${r.quality === i + 1 ? 'on' : ''}" aria-pressed="${r.quality === i + 1}"><b>${i + 1}</b><small>${q}</small></button>`).join('')}</div></fieldset>
         <p class="error" role="alert"></p>
         <button class="btn primary block" type="submit">SALVAR REGISTRO</button>
-        ${found ? `<button class="btn danger block" type="button" id="del">${icon('trash')} Excluir registro</button>` : ''}
+        ${timer ? '<button class="btn ghost block" type="button" data-act="sleep-undo">Ainda não acordei</button><button class="btn danger block" type="button" data-act="sleep-discard">Descartar cronômetro</button>'
+          : found ? `<button class="btn danger block" type="button" id="del">${icon('trash')} Excluir registro</button>` : ''}
       </form>`);
     const form = $('form', el), f = form.elements;
     let quality = r.quality || 0;
@@ -350,11 +442,18 @@
       calc.hidden = !d || d === typed().minutes;
       if (d) { calc.textContent = `Pelos horários: ${L.fmtDur(d)}. Usar este valor`; calc.dataset.min = d; }
     };
-    f.bed.onchange = f.wake.onchange = () => suggest(true);
-    f.h.oninput = f.m.oninput = () => suggest(false);
+    const recount = () => {
+      const d = L.between(f.bed.value, f.wake.value);
+      if (!d) return;
+      const m = Math.max(0, d - timer.latency - timer.awake);
+      f.h.value = Math.floor(m / 60); f.m.value = m % 60;
+    };
+    f.bed.onchange = f.wake.onchange = timer ? recount : () => suggest(true);
+    f.h.oninput = f.m.oninput = timer ? null : () => suggest(false);
     calc.onclick = () => { const d = Number(calc.dataset.min); f.h.value = Math.floor(d / 60); f.m.value = d % 60; calc.hidden = true; };
     f.date.onchange = () => {
       const d = f.date.value;
+      if (timer) { const n = $('#replace', el); n.textContent = replaceText(d); n.hidden = !record(d); return; }
       if (!L.validDate(d) || d > L.today() || d === original) return;
       if (record(d)) openForm(d, mode);                 // nunca duplica: abre o que já existe
       else if (!editing && found) openForm(d, 'new');   // data livre: formulário limpo
@@ -369,12 +468,12 @@
         const h = Number(f.h.value), m = Number(f.m.value);
         if (f.h.validity.badInput || f.m.validity.badInput || !Number.isInteger(h) || !Number.isInteger(m) || h < 0 || m < 0 || m > 59) throw new Error('Use horas inteiras e minutos de 0 a 59.');
         const d = f.date.value;
-        if (d !== original && record(d) && d !== date) return openForm(d, mode);
+        if (!timer && d !== original && record(d) && d !== date) return openForm(d, mode);
         const base = record(original || d);
         const rec = L.cleanRecord({ date: d, minutes: h * 60 + m, goal: base ? base.goal : S.settings.goal, bed: f.bed.value, wake: f.wake.value, quality });
         busy = true;
         closeSheet(); await settle();
-        try { await saveRecord(rec, original); }
+        try { await saveRecord(rec, original, !!timer); }
         catch { toast('Não foi possível salvar. Verifique o espaço do aparelho e tente de novo.', 'bad'); }
       } catch (x) { err.textContent = x.message; }
     };
@@ -531,6 +630,19 @@
       openShare({ kicker: 'Recorde pessoal', title: r.value, desc: r.title, date: fmtDate(r.date), iconName: r.iconName, colors: ['#8b5cf6', '#d946ef'] }, `Meu recorde no NOX. ${r.title}: ${r.value}.`);
     },
     'party-next': () => { celebrations.shift(); nextCelebration(); },
+    'sleep-start': startSleep,
+    'sleep-wake': async () => { if (await changeSession(s => L.sessionAction(s, 'wake'))) reviewSleep(); },
+    'sleep-pause': async () => { closeSheet(); await changeSession(s => L.sessionAction(s, 'pause')); },
+    'sleep-resume': () => changeSession(s => L.sessionAction(s, 'resume')),
+    'sleep-undo': async () => { closeSheet(); await changeSession(s => L.sessionAction(s, 'undo')); },
+    'sleep-review': () => reviewSleep(),
+    'sleep-form': () => { const sum = L.sessionSummary(S.session); openForm(sum.date, 'new', sum, sum); },
+    'sleep-discard': async () => { closeSheet(); if (await changeSession(() => null)) toast('Cronômetro descartado', 'ok'); },
+    'sleep-cancel': async () => {
+      if (await ask({ title: 'Descartar o cronômetro?', text: 'Nada será registrado.', ok: 'Descartar', cancel: 'Voltar', danger: true }) && await changeSession(() => null)) toast('Cronômetro descartado', 'ok');
+    },
+    notify: async () => { await Notification.requestPermission(); render(); syncNotice(); },
+    latency: async v => { if (await saveSettings({ latency: S.settings.latency + Number(v) })) render(); },
     theme: async v => { if (await saveSettings({ theme: v })) render(); },
     goal: async v => {
       const el = $('#goal-val'), ageId = $('#set-age').value, lim = L.goalLimits(ageId);
@@ -550,7 +662,8 @@
       if (!await ask({ title: 'Apagar todos os dados?', text: 'Registros, XP, medalhas e configurações serão removidos deste aparelho. Não há como desfazer. Exporte um backup antes, se quiser guardá-los.', ok: 'Apagar tudo', danger: true, word: 'APAGAR' })) return;
       try {
         await DB.wipe();
-        Object.assign(S, { records: [], rewards: [], settings: L.cleanSettings(), tab: 'inicio' });
+        Object.assign(S, { records: [], rewards: [], settings: L.cleanSettings(), session: null, tab: 'inicio' });
+        syncNotice();
         step = 0; setup = { name: '', age: 'a', goal: 480 };
         applyTheme(); render(); onboard();
       } catch { toast('Não foi possível apagar os dados.', 'bad'); }
@@ -583,12 +696,25 @@
   const refresh = async () => {
     try {
       const data = await DB.load();
-      S.records = data.records; S.rewards = data.rewards;
+      S.records = data.records; S.rewards = data.rewards; S.session = data.session;
       if (S.day !== L.today()) { S.day = L.today(); S.calMonth = S.progMonth = L.monthKey(S.day); }
       render();
     } catch { /* mantém o que está na tela */ }
   };
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && $('#sheet').hidden && S.settings.onboarded) refresh(); });
+  document.addEventListener('visibilitychange', async () => {
+    if (document.hidden || !$('#sheet').hidden || !S.settings.onboarded) return;
+    await refresh(); syncNotice(); attend();
+  });
+  /* um botão da notificação mudou o cronômetro */
+  if (canNotify()) navigator.serviceWorker.addEventListener('message', async e => {
+    if (e.data !== 'nox-session') return;
+    await refresh();
+    if (S.session?.status === 'ended') reviewSleep();
+  });
+  setInterval(() => {
+    const t = $('#timer');
+    if (t && S.session && !document.hidden) t.textContent = timerText(L.sessionSummary(S.session).elapsed);
+  }, 1000);
   setInterval(() => { if (S.day !== L.today() && $('#sheet').hidden) refresh(); }, 60000);
 
   const start = async () => {
@@ -596,7 +722,7 @@
     try {
       await DB.open();
       const data = await DB.load();
-      S.records = data.records; S.rewards = data.rewards; S.settings = L.cleanSettings(data.settings);
+      S.records = data.records; S.rewards = data.rewards; S.settings = L.cleanSettings(data.settings); S.session = data.session;
       // completa recompensas que faltem (sem duplicar)
       const fresh = L.evaluate(S.records, S.rewards);
       if (fresh.length) { await DB.commit({ rewards: fresh }); S.rewards = S.rewards.concat(fresh); }
@@ -611,7 +737,8 @@
     applyTheme(); render(true);
     if (!S.settings.onboarded) onboard();
     setTimeout(() => { const s = $('#splash'); s.classList.add('bye'); setTimeout(() => s.remove(), 500); }, 700);
-    if ('serviceWorker' in navigator && document.querySelector('link[rel=manifest]')) navigator.serviceWorker.register('sw.js').catch(() => {});
+    if ('serviceWorker' in navigator && document.querySelector('link[rel=manifest]')) navigator.serviceWorker.register('sw.js').then(syncNotice).catch(() => {});
+    setTimeout(attend, 1300);
   };
   start();
 })();
