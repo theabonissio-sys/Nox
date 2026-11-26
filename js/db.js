@@ -35,10 +35,11 @@ const DB = (() => {
   };
 
   /* Uma única transação: ou tudo é salvo, ou nada. */
-  const commit = ({ put, remove, rewards = [], settings, replace, endSession }) => run('readwrite', s => {
+  const commit = ({ put, remove, rewards = [], removeRewards = [], settings, replace, endSession }) => run('readwrite', s => {
     if (replace) { s('records').clear(); s('rewards').clear(); }
     (put || []).forEach(r => s('records').put(r));
     if (remove) s('records').delete(remove);
+    removeRewards.forEach(id => s('rewards').delete(id));
     rewards.forEach(r => s('rewards').put(r));
     if (settings) s('meta').put(settings, 'settings');
     if (endSession) s('meta').delete('session');

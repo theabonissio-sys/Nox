@@ -16,6 +16,11 @@ A hospedagem só entrega os arquivos do app. Seus registros não são enviados p
 ## Modo Vou dormir
 Toque em "Vou dormir" na tela inicial. A notificação traz os botões de acordar e pausar. Ao encerrar, o NOX mostra o resultado para conferir antes de salvar. Os segundos do cronômetro aparecem só dentro do app.
 
+## XP e correções
+- Noites anotadas com mais de 3 dias de atraso não valem XP.
+- Prêmios ganhos hoje são desfeitos se a correção ou exclusão de um registro os invalidar.
+- Sonecas são somadas ao registro do dia.
+
 ## Atualizar
 Ao mudar qualquer arquivo, aumente o número da versão do cache em `sw.js` e publique de novo.
 

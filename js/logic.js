@@ -96,9 +96,14 @@
 
   const periodKey = (type, date) => type === 'daily' ? date : type === 'weekly' ? weekStart(date) : monthKey(date);
 
+  /* Noites anotadas com mais de 3 dias de atraso entram no histórico, mas não valem XP. */
+  const isLate = (date, now = today()) => date < addDays(now, -3);
+  const eligible = records => records.filter(r => !r.late);
+  const medalProgress = (m, records) => Math.min(m.target, m.count(eligible(records)));
+
   const missionsFor = (records, type, date) => {
     const key = periodKey(type, date);
-    const rs = records.filter(r => periodKey(type, r.date) === key);
+    const rs = eligible(records).filter(r => periodKey(type, r.date) === key);
     return MISSIONS[type].map(m => {
       const target = m.target(key), count = Math.min(m.count(rs), target);
       return { ...m, type, key, rewardId: `m:${type}:${key}:${m.id}`, target, progress: count, done: count >= target };
@@ -112,15 +117,44 @@
     const out = [];
     const add = r => { if (!have.has(r.id)) { have.add(r.id); out.push(r); } };
     ['daily', 'weekly', 'monthly'].forEach(type => {
-      new Set(records.map(r => periodKey(type, r.date))).forEach(key => {
+      new Set(eligible(records).map(r => periodKey(type, r.date))).forEach(key => {
         const date = type === 'monthly' ? `${key}-01` : key;
         missionsFor(records, type, date).filter(m => m.done).forEach(m =>
           add({ id: m.rewardId, kind: 'mission', type, ref: m.id, period: key, name: m.name, xp: m.xp, date: now }));
       });
     });
-    MEDALS.filter(m => m.count(records) >= m.target).forEach(m =>
+    MEDALS.filter(m => medalProgress(m, records) >= m.target).forEach(m =>
       add({ id: `a:${m.id}`, kind: 'medal', ref: m.id, name: m.name, xp: m.xp, date: now }));
     return out;
+  };
+
+  /* Correção no mesmo dia: prêmios ganhos hoje que os registros já não sustentam. */
+  const revocable = (records, rewards, now = today()) => {
+    const ok = new Set(evaluate(records, [], now).map(r => r.id));
+    return rewards.filter(r => r.date === now && !ok.has(r.id)).map(r => r.id);
+  };
+
+  const addNap = (rec, minutes) => {
+    if (!Number.isInteger(minutes) || minutes <= 0) throw new Error('Informe quanto durou a soneca.');
+    if (rec.minutes + minutes > 1440) throw new Error('A soma do dia não pode passar de 24 horas.');
+    return { ...rec, minutes: rec.minutes + minutes, nap: (rec.nap || 0) + minutes };
+  };
+
+  /* Horários típicos. A conta parte do meio-dia para a meia-noite não atrapalhar a média. */
+  const fromNoon = t => (Number(t.slice(0, 2)) * 60 + Number(t.slice(3)) + 720) % 1440;
+  const toClock = m => { const t = (Math.round(m) + 720) % 1440; return `${pad(Math.floor(t / 60))}:${pad(t % 60)}`; };
+  const timing = records => {
+    const nights = records.filter(r => r.bed && r.wake && r.bed !== r.wake).map(r => {
+      const from = fromNoon(r.bed);
+      return { date: r.date, from, to: from + (fromNoon(r.wake) - from + 1440) % 1440 };
+    });
+    if (!nights.length) return { nights, count: 0 };
+    const mean = k => nights.reduce((s, n) => s + n[k], 0) / nights.length;
+    const from = mean('from');
+    return {
+      nights, count: nights.length, bed: toClock(from), wake: toClock(mean('to')),
+      spread: Math.round(nights.reduce((s, n) => s + Math.abs(n.from - from), 0) / nights.length),
+    };
   };
 
   const totalXp = rewards => rewards.reduce((s, r) => s + r.xp, 0);
@@ -150,6 +184,8 @@
       date: r.date, minutes: r.minutes, goal: r.goal,
       bed: timeRe.test(r.bed) ? r.bed : '', wake: timeRe.test(r.wake) ? r.wake : '',
       quality: Number.isInteger(r.quality) && r.quality >= 1 && r.quality <= 5 ? r.quality : 0,
+      ...(Number.isInteger(r.nap) && r.nap > 0 ? { nap: Math.min(r.nap, r.minutes) } : {}),
+      ...(r.late ? { late: true } : {}),
     };
   };
 
@@ -167,6 +203,7 @@
       goal: Number.isInteger(s.goal) ? Math.min(lim.max, Math.max(lim.min, s.goal)) : age(a).sug,
       theme: s.theme === 'light' ? 'light' : 'dark', onboarded: !!s.onboarded,
       latency: Number.isInteger(s.latency) ? Math.min(60, Math.max(0, s.latency)) : 15,
+      lastBackup: validDate(s.lastBackup) ? s.lastBackup : '', backupSnooze: validDate(s.backupSnooze) ? s.backupSnooze : '',
     };
   };
 
@@ -243,7 +280,7 @@
     iso, parse, validDate, addDays, today, weekStart, weekDays, monthKey, daysInMonth, monthDays, fmtDur,
     AGES, age, goalLimits, met, hasDetails, longestStreak, MISSIONS, MEDALS, LEVELS, levelInfo,
     missionsFor, evaluate, totalXp, stats, cleanRecord, cleanSettings, between, parseBackup,
-    clock, startSession, sessionAction, sessionSummary, sessionNotice,
+    isLate, eligible, medalProgress, revocable, addNap, timing, toClock, clock, startSession, sessionAction, sessionSummary, sessionNotice,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Logic = api;

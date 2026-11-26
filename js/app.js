@@ -73,7 +73,7 @@
         <button class="btn primary block" data-act="register">${icon('plus')} REGISTRAR SONO</button>
         ${S.session ? '' : `<button class="btn ghost block" data-act="sleep-start">${icon('moon')} Vou dormir</button>`}
       </section>
-      ${levelCard()}
+      ${levelCard()}${backupCard()}
       <section class="card"><div class="row between"><h3>Sua semana</h3><span class="muted">${wr.length ? `Média ${L.fmtDur(L.stats(wr).avg)}` : 'Sem registros'}</span></div>
         <div class="week">${week.map(d => {
           const r = record(d);
@@ -121,6 +121,7 @@
           <div class="legend"><span><i class="met"></i>Meta atingida</span><span><i class="low"></i>Abaixo</span><span><i class="line"></i>Meta atual</span></div>`
           : '<div class="empty small"><p>Nenhum registro neste período.</p><button class="btn ghost" data-act="register">Registrar sono</button></div>'}
       </section>
+      ${timingCard(days)}
       <h2>Estatísticas gerais</h2>
       ${g.count ? `<section class="stats">${stat('Média de sono', L.fmtDur(g.avg))}${stat('Maior duração', L.fmtDur(g.max.minutes), fmtDate(g.max.date, { day: '2-digit', month: 'short' }))}
         ${stat('Total dormido', L.fmtDur(g.total))}${stat('Noites registradas', g.count)}${stat('Dias na meta', `${g.metPct}%`, `${g.metCount} de ${plural(g.count, 'noite', 'noites')}`)}${stat('Maior sequência', plural(g.streak, 'dia', 'dias'))}</section>
@@ -140,11 +141,11 @@
             return `<article class="card mission ${done ? 'done' : ''}"><div class="row between"><h3>${m.name}</h3><span class="xp">+${m.xp} XP</span></div>
               <p class="muted">${m.desc}</p>${bar(p / m.target)}<div class="row between"><span class="state">${done ? `${icon('check')} Concluída` : 'Em andamento'}</span><span class="muted">${p}/${m.target}</span></div>
               ${done ? `<button class="btn ghost small" data-act="share-mission" data-v="${m.rewardId}">${icon('share')} Compartilhar</button>` : ''}</article>`;
-          }).join('')}`).join('') + '<p class="note">Dormir além da meta não rende pontos extras, e noites abaixo dela nunca tiram XP.</p>';
+          }).join('')}`).join('') + '<p class="note">Dormir além da meta não rende pontos extras, e noites abaixo dela nunca tiram XP. Noites anotadas com mais de 3 dias de atraso não valem XP.</p>';
       } else if (S.achTab === 'medalhas') {
         const n = L.MEDALS.filter(m => reward(`a:${m.id}`)).length;
         body = `<p class="muted center">${n} de ${L.MEDALS.length} medalhas desbloqueadas</p><div class="medals">${L.MEDALS.map(m => {
-          const r = reward(`a:${m.id}`), p = Math.min(m.target, m.count(S.records));
+          const r = reward(`a:${m.id}`), p = L.medalProgress(m, S.records);
           return `<article class="card medal-card ${r ? '' : 'locked'}"><button class="medal-open" data-act="medal" data-v="${m.id}">${medal(m, !!r)}<h3>${m.name}</h3><p>${m.desc}</p>
             <small>${r ? `Desbloqueada em ${fmtDate(r.date, { day: '2-digit', month: '2-digit', year: 'numeric' })}` : `Bloqueada · ${p}/${m.target}`}</small></button>
             ${r ? `<button class="btn ghost small" data-act="share-medal" data-v="${m.id}">${icon('share')} Compartilhar</button>` : bar(p / m.target)}</article>`;
@@ -173,10 +174,11 @@
       <section class="card"><h3>Aparência</h3>${seg('theme', [['dark', 'Escuro'], ['light', 'Claro']], s.theme)}</section>
       ${S.installEvt ? `<section class="card"><h3>Instalar</h3><p class="muted">Coloque o NOX na tela inicial e use offline.</p><button class="btn primary block" data-act="install">${icon('download')} Instalar aplicativo</button></section>` : ''}
       <section class="card"><h3>Backup</h3><p class="muted">Seus dados ficam só neste aparelho. Exporte um arquivo de vez em quando para não perdê-los.</p>
+        <p class="note">${s.lastBackup ? `Último backup: ${fmtDate(s.lastBackup)}.` : 'Nenhum backup feito ainda.'}</p>
         <button class="btn ghost block" data-act="export">${icon('download')} Exportar registros</button>
         <button class="btn ghost block" data-act="import">${icon('upload')} Importar backup</button>
         <input type="file" id="file" accept=".json,application/json" hidden></section>
-      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.0.</p>
+      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.2.</p>
         <p class="muted">${icon('shield')} Sem conta, sem servidor e sem rastreamento. Funciona offline depois de instalado.</p>
         <p class="muted">As sugestões de meta seguem as faixas da National Sleep Foundation. O NOX não é um dispositivo médico; se o sono estiver preocupando você, converse com um profissional de saúde.</p></section>
       <button class="btn danger block" data-act="wipe">${icon('trash')} Apagar todos os dados</button>`;
@@ -250,10 +252,11 @@
 
   const askAwake = () => {
     const s = S.session;
-    if (!s || s.status !== 'sleeping' || L.sessionSummary(s).total < 30) return;
+    // só pergunta depois de 3 horas, e dá 1 hora de folga a cada "só olhei"
+    if (!s || s.status !== 'sleeping' || L.sessionSummary(s).total < 180 || s.snooze > Date.now()) return;
     openSheet(`<h2>Você acordou?</h2><p class="muted">O cronômetro está ligado desde ${L.clock(s.start)}.</p>
       <button class="btn primary block" data-act="sleep-wake">Acordei</button>
-      <button class="btn ghost block" data-act="close">Só olhei o celular</button>
+      <button class="btn ghost block" data-act="sleep-peek">Só olhei o celular</button>
       <button class="btn ghost block" data-act="sleep-pause">Fiquei acordado no meio da noite</button>`);
   };
 
@@ -283,6 +286,51 @@
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de horas dormidas por dia, com linha da meta"><defs>
       <linearGradient id="gm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#3b82f6"/></linearGradient>
       <linearGradient id="gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs>${out}</svg>`;
+  };
+
+  const timingCard = days => {
+    const t = L.timing(days.map(record).filter(Boolean));
+    if (t.count < 3) return `<section class="card"><h3>Seus horários</h3><p class="muted">Registre os horários de dormir e acordar em pelo menos 3 noites do período para ver sua rotina. O modo Vou dormir preenche isso sozinho.</p></section>`;
+    const W = 340, H = 180, x0 = 36, ph = 152, step = (W - x0 - 2) / days.length, bw = Math.min(14, step * .5);
+    const lo = Math.floor((Math.min(...t.nights.map(n => n.from)) - 30) / 120) * 120;
+    const hi = Math.ceil((Math.max(...t.nights.map(n => n.to)) + 30) / 120) * 120;
+    const y = m => 8 + (m - lo) / (hi - lo) * ph, gap = hi - lo > 960 ? 240 : 120;
+    let out = '';
+    for (let m = lo; m <= hi; m += gap) out += `<line class="gridline" x1="${x0}" x2="${W}" y1="${y(m)}" y2="${y(m)}"/><text x="0" y="${y(m) + 3}">${L.toClock(m)}</text>`;
+    t.nights.forEach(n => {
+      const cx = x0 + step * days.indexOf(n.date) + step / 2;
+      out += `<rect fill="#7c6cf6" x="${cx - bw / 2}" y="${y(n.from)}" width="${bw}" height="${Math.max(2, y(n.to) - y(n.from))}" rx="${bw / 2}"/><circle fill="#22d3ee" cx="${cx}" cy="${y(n.from) + bw / 2}" r="${bw / 2}"/>`;
+    });
+    return `<section class="card"><h3>Seus horários</h3><div class="row between period"><div><small>Costuma dormir</small><b>${t.bed}</b></div><div><small>Costuma acordar</small><b>${t.wake}</b></div><div><small>Variação</small><b>${t.spread} min</b></div></div>
+      <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Horários de dormir e acordar por noite">${out}</svg>
+      <p class="note">Cada barra vai do horário de dormir (ponto ciano) ao de acordar, da esquerda (mais antigo) para a direita. Quanto menor a variação, mais regular sua rotina.</p></section>`;
+  };
+
+  const backupCard = () => {
+    const s = S.settings, t = L.today();
+    if (S.records.length < 5 || (s.lastBackup && s.lastBackup > L.addDays(t, -14)) || s.backupSnooze > t) return '';
+    return `<section class="card"><h3>Proteja seus registros</h3><p class="muted">Você tem ${plural(S.records.length, 'noite salva', 'noites salvas')} só neste aparelho. Guarde um backup para não perder se trocar de celular ou limpar o navegador.</p>
+      <button class="btn ghost block" data-act="export">${icon('download')} Fazer backup</button><button class="link" data-act="backup-later">Lembrar em 7 dias</button></section>`;
+  };
+
+  const openNap = date => {
+    const base = record(date);
+    if (!base) return;
+    const el = openSheet(`<h2>Adicionar soneca</h2><p class="muted">O tempo é somado ao registro de ${fmtDate(date)} (hoje: ${L.fmtDur(base.minutes)}).</p>
+      <form class="form" novalidate><div class="two"><label>Horas<input type="number" name="h" inputmode="numeric" min="0" max="12" placeholder="0"></label><label>Minutos<input type="number" name="m" inputmode="numeric" min="0" max="59" placeholder="30"></label></div>
+      <p class="error" role="alert"></p><button class="btn primary block" type="submit">SOMAR SONECA</button></form>`);
+    let busy = false;
+    $('form', el).onsubmit = async e => {
+      e.preventDefault();
+      if (busy) return;
+      const f = e.target.elements;
+      try {
+        const rec = L.addNap(record(date), Number(f.h.value) * 60 + Number(f.m.value));
+        busy = true;
+        closeSheet(); await settle();
+        try { await saveRecord(rec); } catch { toast('Não foi possível salvar.', 'bad'); }
+      } catch (x) { $('.error', el).textContent = x.message; }
+    };
   };
 
   const medal = (m, on) => `<span class="medal ${on ? 'on' : ''}" style="--a:${m.colors[0]};--b:${m.colors[1]}">${icon(m.icon)}${on ? '' : `<span class="lock">${icon('lock')}</span>`}</span>`;
@@ -378,7 +426,7 @@
     const el = $('#party'), c = celebrations[0];
     if (!c) { el.hidden = true; el.innerHTML = ''; return; }
     el.hidden = false;
-    el.innerHTML = `<div class="confetti">${Array.from({ length: 36 }, (_, i) => `<i style="--x:${(i * 53) % 100}%;--d:${(i % 12) * 90}ms;--h:${[190, 225, 262, 290][i % 4]}"></i>`).join('')}</div>
+    el.innerHTML = `<div class="confetti">${Array.from({ length: 20 }, (_, i) => `<i style="--x:${(i * 53) % 100}%;--d:${(i % 12) * 90}ms;--h:${[190, 225, 262, 290][i % 4]}"></i>`).join('')}</div>
       <div class="party-box" role="alertdialog" aria-label="${c.title}"><p class="eyebrow">${c.kicker}</p>${c.art}<h2>${c.title}</h2><p>${c.text}</p>
       ${c.medalId ? `<button class="btn ghost block" data-act="share-medal" data-v="${c.medalId}">${icon('share')} Compartilhar</button>` : ''}
       <button class="btn primary block" data-act="party-next">Continuar</button></div>`;
@@ -387,14 +435,18 @@
   /* ---------- gravação ---------- */
   const saveRecord = async (rec, oldDate, endSession = false) => {
     const records = S.records.filter(r => r.date !== rec.date && r.date !== oldDate).concat(rec);
-    const fresh = L.evaluate(records, S.rewards);
+    const revoked = L.revocable(records, S.rewards);
+    const kept = S.rewards.filter(r => !revoked.includes(r.id));
+    const fresh = L.evaluate(records, kept);
     const before = level().level;
-    await DB.commit({ put: [rec], remove: oldDate && oldDate !== rec.date ? oldDate : null, rewards: fresh, endSession });
-    S.records = records; S.rewards = S.rewards.concat(fresh);
+    await DB.commit({ put: [rec], remove: oldDate && oldDate !== rec.date ? oldDate : null, rewards: fresh, removeRewards: revoked, endSession });
+    const lost = L.totalXp(S.rewards) - L.totalXp(kept);
+    S.records = records; S.rewards = kept.concat(fresh);
     if (endSession) { S.session = null; syncNotice(); }
     render();
     const gained = L.totalXp(fresh), done = fresh.filter(r => r.kind === 'mission');
-    toast(gained ? `Registro salvo · +${gained} XP${done.length ? ` · ${plural(done.length, 'missão concluída', 'missões concluídas')}` : ''}` : 'Registro salvo', 'ok');
+    toast(gained ? `Registro salvo · +${gained} XP${done.length ? ` · ${plural(done.length, 'missão concluída', 'missões concluídas')}` : ''}`
+      : lost ? `Registro corrigido · ${lost} XP de hoje ajustados` : rec.late ? 'Salvo no histórico (noite antiga, sem XP)' : 'Registro salvo', 'ok');
     const after = level();
     if (after.level > before) celebrations.push({ kicker: 'VOCÊ SUBIU DE NÍVEL', art: `<span class="lvl-badge big"><small>NÍVEL</small><b>${after.level}</b></span>`, title: after.name, text: `Você acumulou ${num(L.totalXp(S.rewards))} XP.` });
     fresh.filter(r => r.kind === 'medal').forEach(r => {
@@ -408,13 +460,15 @@
     const found = record(date);
     // vindo do cronômetro, os valores medidos valem; a qualidade já anotada é mantida
     const r = timer ? { ...draft, minutes: timer.total > 960 ? null : timer.minutes, quality: found?.quality } : found || draft || {};
-    const replaceText = d => record(d) ? `Já existe um registro nesta data (${L.fmtDur(record(d).minutes)}). Salvar vai substituí-lo.` : '';
+    const replaceText = d => record(d) ? `Já existe um registro nesta data (${L.fmtDur(record(d).minutes)}). Se foi uma soneca, some ao dia. Substituir apaga o anterior.` : '';
     const editing = mode === 'edit';
     const original = editing ? date : null;
     const el = openSheet(`<h2>${timer ? 'Confira sua noite' : found ? 'Editar noite' : 'Registrar sono'}</h2>
       ${timer ? `<p class="banner">Cronômetro: ${L.fmtDur(timer.total)}, menos ${timer.latency} min para pegar no sono${timer.awake ? ` e ${timer.awake} min acordado` : ''}. Ajuste se precisar.</p>
         ${timer.total > 960 ? '<p class="banner">O cronômetro passou de 16 horas. Corrija o horário em que você acordou.</p>' : ''}<p class="banner" id="replace" ${found ? '' : 'hidden'}>${replaceText(date)}</p>`
         : found && !editing ? '<p class="banner">Já existe um registro nesta data. Você está editando esse registro.</p>' : ''}
+      ${!timer && found?.nap ? `<p class="note">O total inclui ${L.fmtDur(found.nap)} de soneca.</p>` : ''}
+      <p class="note" id="late" ${!timer && (found ? found.late : L.isLate(date)) ? '' : 'hidden'}>Noite antiga: entra no histórico e nos gráficos, mas não vale XP, missões nem medalhas.</p>
       <form class="form" novalidate>
         <label>Data em que você acordou<input type="date" name="date" value="${date}" max="${L.today()}" required></label>
         <div class="two"><label>Horas dormidas<input type="number" name="h" inputmode="numeric" min="0" max="24" placeholder="7" value="${r.minutes != null ? Math.floor(r.minutes / 60) : ''}"></label>
@@ -424,7 +478,9 @@
         <button type="button" class="link" id="calc" hidden></button>
         <fieldset><legend>Qualidade do sono <em>opcional</em></legend><div class="quality">${QUALITY.map((q, i) => `<button type="button" data-q="${i + 1}" class="${r.quality === i + 1 ? 'on' : ''}" aria-pressed="${r.quality === i + 1}"><b>${i + 1}</b><small>${q}</small></button>`).join('')}</div></fieldset>
         <p class="error" role="alert"></p>
-        <button class="btn primary block" type="submit">SALVAR REGISTRO</button>
+        ${timer ? `<button class="btn primary block" type="button" id="nap" ${found ? '' : 'hidden'}>SOMAR COMO SONECA</button>` : ''}
+        <button class="btn ${timer && found ? 'ghost' : 'primary'} block" type="submit">${timer && found ? 'Substituir o registro' : 'SALVAR REGISTRO'}</button>
+        ${found && !timer ? `<button class="btn ghost block" type="button" data-act="nap" data-v="${date}">${icon('plus')} Adicionar soneca</button>` : ''}
         ${timer ? '<button class="btn ghost block" type="button" data-act="sleep-undo">Ainda não acordei</button><button class="btn danger block" type="button" data-act="sleep-discard">Descartar cronômetro</button>'
           : found ? `<button class="btn danger block" type="button" id="del">${icon('trash')} Excluir registro</button>` : ''}
       </form>`);
@@ -453,7 +509,14 @@
     calc.onclick = () => { const d = Number(calc.dataset.min); f.h.value = Math.floor(d / 60); f.m.value = d % 60; calc.hidden = true; };
     f.date.onchange = () => {
       const d = f.date.value;
-      if (timer) { const n = $('#replace', el); n.textContent = replaceText(d); n.hidden = !record(d); return; }
+      if (timer) {
+        const n = $('#replace', el), has = !!record(d), send = $('[type=submit]', el);
+        n.textContent = replaceText(d); n.hidden = !has; $('#nap', el).hidden = !has;
+        send.textContent = has ? 'Substituir o registro' : 'SALVAR REGISTRO';
+        send.className = `btn ${has ? 'ghost' : 'primary'} block`;
+        return;
+      }
+      if (L.validDate(d)) $('#late', el).hidden = !(record(d) ? record(d).late : L.isLate(d));
       if (!L.validDate(d) || d > L.today() || d === original) return;
       if (record(d)) openForm(d, mode);                 // nunca duplica: abre o que já existe
       else if (!editing && found) openForm(d, 'new');   // data livre: formulário limpo
@@ -470,20 +533,33 @@
         const d = f.date.value;
         if (!timer && d !== original && record(d) && d !== date) return openForm(d, mode);
         const base = record(original || d);
-        const rec = L.cleanRecord({ date: d, minutes: h * 60 + m, goal: base ? base.goal : S.settings.goal, bed: f.bed.value, wake: f.wake.value, quality });
+        const late = !timer && (base ? base.late || (d !== base.date && L.isLate(d)) : L.isLate(d));
+        const rec = L.cleanRecord({ date: d, minutes: h * 60 + m, goal: base ? base.goal : S.settings.goal, bed: f.bed.value, wake: f.wake.value, quality, nap: timer ? 0 : base?.nap, late });
         busy = true;
         closeSheet(); await settle();
         try { await saveRecord(rec, original, !!timer); }
         catch { toast('Não foi possível salvar. Verifique o espaço do aparelho e tente de novo.', 'bad'); }
       } catch (x) { err.textContent = x.message; }
     };
+    const nap = $('#nap', el);
+    if (nap) nap.onclick = async () => {
+      if (busy) return;
+      try {
+        const rec = L.addNap(record(f.date.value), Number(f.h.value) * 60 + Number(f.m.value));
+        busy = true;
+        closeSheet(); await settle();
+        try { await saveRecord(rec, null, true); } catch { toast('Não foi possível salvar.', 'bad'); }
+      } catch (x) { $('.error', el).textContent = x.message; }
+    };
     const del = $('#del', el);
     if (del) del.onclick = async () => {
       closeSheet(); await settle();
-      if (!await ask({ title: 'Excluir registro?', text: `A noite de ${fmtDate(date)} sairá do calendário, dos gráficos e das médias. O XP e as medalhas já conquistados continuam com você, e registrar a data de novo não paga duas vezes.`, ok: 'Excluir', danger: true })) return;
+      if (!await ask({ title: 'Excluir registro?', text: `A noite de ${fmtDate(date)} sairá do calendário, dos gráficos e das médias. Prêmios ganhos hoje que dependiam dela são desfeitos. Os de dias anteriores continuam com você.`, ok: 'Excluir', danger: true })) return;
       try {
-        await DB.commit({ remove: date });
-        S.records = S.records.filter(x => x.date !== date);
+        const records = S.records.filter(x => x.date !== date);
+        const revoked = L.revocable(records, S.rewards);
+        await DB.commit({ remove: date, removeRewards: revoked });
+        S.records = records; S.rewards = S.rewards.filter(r => !revoked.includes(r.id));
         render(); toast('Registro excluído', 'ok');
       } catch { toast('Não foi possível excluir.', 'bad'); }
     };
@@ -495,7 +571,7 @@
     openSheet(`<p class="eyebrow">${fmtDate(date, { weekday: 'long' }).toUpperCase()}</p><h2>${fmtDate(date)}</h2>
       ${r ? `<span class="chip ${L.met(r) ? 'met' : 'low'}">${L.met(r) ? 'Meta atingida' : 'Abaixo da meta'}</span>
         ${row('Horas dormidas', L.fmtDur(r.minutes))}${row('Meta diária', L.fmtDur(r.goal))}${bar(r.minutes / r.goal)}
-        ${r.quality ? row('Qualidade', QUALITY[r.quality - 1]) : ''}${r.bed ? row('Foi dormir', r.bed) : ''}${r.wake ? row('Acordou', r.wake) : ''}
+        ${r.nap ? row('Soneca incluída', L.fmtDur(r.nap)) : ''}${r.quality ? row('Qualidade', QUALITY[r.quality - 1]) : ''}${r.bed ? row('Foi dormir', r.bed) : ''}${r.wake ? row('Acordou', r.wake) : ''}
         <button class="btn primary block" data-act="edit" data-v="${date}">${icon('edit')} Editar registro</button>`
         : `<span class="chip">Sem registro</span>${row('Meta diária', L.fmtDur(S.settings.goal))}<button class="btn primary block" data-act="edit-new" data-v="${date}">${icon('plus')} Registrar esta noite</button>`}`);
   };
@@ -503,17 +579,18 @@
   /* ---------- compartilhamento ---------- */
   /* dentro de um visualizador (prévia online) o arquivo é salvo pela API dele */
   const saver = window.claude?.use?.('downloads');
-  const download = async (blob, name, okText) => {
+  const download = async (blob, name, okText) => { // devolve true se o arquivo foi entregue
     if (saver) {
-      try { const d = await saver; if (!d) throw new Error(); await d.save({ filename: name, data: blob }); toast(okText, 'ok'); }
+      try { const d = await saver; if (!d) throw new Error(); await d.save({ filename: name, data: blob }); toast(okText, 'ok'); return true; }
       catch (e) { if (e?.code !== 'declined') toast('Não foi possível baixar nesta visualização.', 'bad'); }
-      return;
+      return false;
     }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = name;
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 30000);
     toast(okText, 'ok');
+    return true;
   };
   const copy = async text => {
     try { await navigator.clipboard.writeText(text); }
@@ -549,9 +626,10 @@
   };
 
   /* ---------- backup ---------- */
-  const exportData = () => {
+  const exportData = async () => {
     const data = { app: 'NOX', version: 1, exportedAt: new Date().toISOString(), settings: S.settings, records: [...S.records].sort((a, b) => a.date.localeCompare(b.date)), rewards: S.rewards };
-    download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `nox-backup-${L.today()}.json`, `Backup com ${plural(S.records.length, 'noite', 'noites')} gerado`);
+    const ok = await download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `nox-backup-${L.today()}.json`, `Backup com ${plural(S.records.length, 'noite', 'noites')} gerado`);
+    if (ok && await saveSettings({ lastBackup: L.today() })) render();
   };
   const importFile = async file => {
     try {
@@ -614,7 +692,7 @@
     'prog-next': () => { S.progMonth = shiftMonth(S.progMonth, 1); render(); },
     period: v => { S.period = v; render(); }, ach: v => { S.achTab = v; render(); },
     medal: v => {
-      const m = L.MEDALS.find(x => x.id === v), r = reward(`a:${v}`), p = Math.min(m.target, m.count(S.records));
+      const m = L.MEDALS.find(x => x.id === v), r = reward(`a:${v}`), p = L.medalProgress(m, S.records);
       openSheet(`<div class="center ${r ? '' : 'locked'}">${medal(m, !!r)}<h2>${m.name}</h2><p class="muted">${m.desc}</p><p class="xp">+${m.xp} XP</p>
         ${r ? `<p class="muted">Desbloqueada em ${fmtDate(r.date)}</p><button class="btn primary block" data-act="share-medal" data-v="${v}">${icon('share')} Compartilhar</button>` : `${bar(p / m.target)}<p class="muted">Bloqueada · ${p} de ${m.target}</p>`}</div>`);
     },
@@ -633,6 +711,9 @@
     'sleep-start': startSleep,
     'sleep-wake': async () => { if (await changeSession(s => L.sessionAction(s, 'wake'))) reviewSleep(); },
     'sleep-pause': async () => { closeSheet(); await changeSession(s => L.sessionAction(s, 'pause')); },
+    'sleep-peek': async () => { closeSheet(); await changeSession(s => s && { ...s, snooze: Date.now() + 3600e3 }); },
+    nap: v => openNap(v),
+    'backup-later': async () => { if (await saveSettings({ backupSnooze: L.addDays(L.today(), 7) })) render(); },
     'sleep-resume': () => changeSession(s => L.sessionAction(s, 'resume')),
     'sleep-undo': async () => { closeSheet(); await changeSession(s => L.sessionAction(s, 'undo')); },
     'sleep-review': () => reviewSleep(),
@@ -717,6 +798,26 @@
   }, 1000);
   setInterval(() => { if (S.day !== L.today() && $('#sheet').hidden) refresh(); }, 60000);
 
+  /* aviso de versão nova */
+  let updating = false;
+  const offerUpdate = reg => {
+    if (!reg.waiting || !navigator.serviceWorker.controller || $('#update')) return;
+    const b = document.createElement('button');
+    b.id = 'update'; b.className = 'btn primary'; b.textContent = 'Nova versão disponível · Atualizar';
+    b.onclick = () => { updating = true; b.disabled = true; reg.waiting?.postMessage('nox-update'); };
+    document.body.append(b);
+  };
+  const watchUpdates = reg => {
+    offerUpdate(reg);
+    reg.addEventListener('updatefound', () => {
+      const w = reg.installing;
+      w?.addEventListener('statechange', () => { if (w.state === 'installed') offerUpdate(reg); });
+    });
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (updating) location.reload(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+    syncNotice();
+  };
+
   const start = async () => {
     $('#nav').innerHTML = `<span class="pill"></span>${TABS.map(([id, label, ic]) => `<button data-act="tab" data-v="${id}">${icon(ic)}<span>${label}</span></button>`).join('')}`;
     try {
@@ -736,9 +837,10 @@
     try { history.replaceState(null, '', location.href); } catch { /* sem histórico */ }
     applyTheme(); render(true);
     if (!S.settings.onboarded) onboard();
-    setTimeout(() => { const s = $('#splash'); s.classList.add('bye'); setTimeout(() => s.remove(), 500); }, 700);
-    if ('serviceWorker' in navigator && document.querySelector('link[rel=manifest]')) navigator.serviceWorker.register('sw.js').then(syncNotice).catch(() => {});
-    setTimeout(attend, 1300);
+    else navigator.storage?.persist?.().catch(() => {});
+    setTimeout(() => { const s = $('#splash'); s.classList.add('bye'); setTimeout(() => s.remove(), 250); }, 200);
+    if ('serviceWorker' in navigator && document.querySelector('link[rel=manifest]')) navigator.serviceWorker.register('sw.js').then(watchUpdates).catch(() => {});
+    setTimeout(attend, 600);
   };
   start();
 })();
