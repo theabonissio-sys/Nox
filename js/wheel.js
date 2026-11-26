@@ -1,51 +1,47 @@
-/* NOX: barra de navegação giratória. A aba atual fica no centro, maior; arrastar ou tocar gira a roda. */
+/* NOX: barra de navegação. A aba atual cresce e o ícone gira; arrastar passa só para a vizinha. */
 const Wheel = ({ nav, items, onPick, onStep }) => {
-  const n = items.length, half = n / 2;
-  const mod = i => ((i % n) + n) % n;
-  /* distância circular de cada item até o centro, entre -2,5 e 2,5 */
-  const offset = (i, pos) => mod(i - pos + half) - half;
-  let pos = 0, goal = 0, frame = 0, drag = null, swallow = false, started = false;
-
+  const n = items.length, MIN = 10, NEXT = 42; // px para começar a arrastar e para trocar de aba
   nav.innerHTML = items.map(([id, label, ic]) => `<button data-act="tab" data-v="${id}" aria-label="${label}"><span class="orbit"><i class="halo"></i>${icon(ic)}</span><span class="label">${label}</span></button>`).join('');
   const buttons = [...nav.children];
-  const space = () => (nav.clientWidth - 12) / (n + .2);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  /* focus[i] vai de 0 (normal) a 1 (destacado) */
+  let focus = items.map(() => 0), current = -1, side = 1, frame = 0, drag = null, swallow = false;
 
   const paint = () => {
-    const s = space();
+    // a aba destacada ganha mais espaço; a soma sempre cabe dentro da barra
+    const weights = focus.map(f => 1 + clamp(f, 0, 1) * .35);
+    const unit = (nav.clientWidth - 12) / weights.reduce((a, b) => a + b, 0);
+    let left = 6;
     buttons.forEach((b, i) => {
-      const d = offset(i, pos), far = Math.abs(d), f = Math.max(0, 1 - far);
-      // o item central empurra os vizinhos; os das pontas descem, como numa roda
-      const x = d * s + Math.max(-1, Math.min(1, d)) * s * .1;
-      b.style.width = `${s}px`;
-      b.style.transform = `translate3d(${(x - s / 2).toFixed(1)}px, ${(d * d * 1.3).toFixed(1)}px, 0) rotate(${(d * 4).toFixed(2)}deg)`;
-      b.style.opacity = far > 2 ? Math.max(0, 1 - (far - 2) * 2).toFixed(2) : 1;
-      b.style.zIndex = Math.round(10 - far * 2);
-      b.style.setProperty('--f', f.toFixed(3));
-      b.style.setProperty('--spin', `${(f * (d < 0 ? -360 : 360)).toFixed(1)}deg`);
+      const width = weights[i] * unit;
+      b.style.width = `${width}px`;
+      b.style.transform = `translate3d(${left.toFixed(1)}px, 0, 0)`;
+      b.style.zIndex = focus[i] > .5 ? 2 : 1;
+      b.style.setProperty('--f', focus[i].toFixed(3));
+      b.style.setProperty('--spin', `${(focus[i] * 360 * side).toFixed(1)}deg`);
+      left += width;
     });
   };
 
   const stop = () => { cancelAnimationFrame(frame); frame = 0; };
   const land = () => {
-    const b = buttons[mod(Math.round(pos))];
+    const b = buttons[current];
     b.classList.remove('land'); void b.offsetWidth; b.classList.add('land');
   };
-  /* gira até a posição pedida, passando um pouco do ponto e voltando */
-  const spin = to => {
+  /* a atual encolhe e a nova cresce, passando um pouco do ponto e voltando */
+  const animate = () => {
     stop();
-    goal = to;
-    const from = pos, dist = to - from;
-    if (!dist) return paint();
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { pos = to; return paint(); }
-    const duration = 380 + Math.min(3, Math.abs(dist)) * 80;
+    const from = focus.slice(), to = items.map((_, i) => i === current ? 1 : 0);
+    if (from.every((f, i) => f === to[i])) return paint();
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { focus = to; return paint(); }
     let begin = null;
     const step = now => {
       begin = begin ?? now;
-      const t = Math.min(1, (now - begin) / duration), u = t - 1, e = 1 + 2.1 * u * u * u + 1.1 * u * u;
-      pos = from + dist * e;
+      const t = Math.min(1, (now - begin) / 420), u = t - 1, e = 1 + 2.4 * u * u * u + 1.4 * u * u;
+      focus = from.map((f, i) => f + (to[i] - f) * e);
       paint();
       if (t < 1) frame = requestAnimationFrame(step);
-      else { pos = to; frame = 0; paint(); land(); }
+      else { focus = to; frame = 0; paint(); land(); }
     };
     frame = requestAnimationFrame(step);
   };
@@ -55,35 +51,44 @@ const Wheel = ({ nav, items, onPick, onStep }) => {
     b.setAttribute('aria-current', i === index ? 'page' : 'false');
   });
 
-  /* escolhe uma aba pelo caminho mais curto da roda */
   const select = index => {
     mark(index);
-    if (!started) { started = true; pos = goal = index; return paint(); }
-    if (drag?.moved || mod(goal) === index) return;
-    spin(pos + offset(index, pos));
+    if (current < 0) { current = index; focus = items.map((_, i) => i === index ? 1 : 0); return paint(); }
+    if (index === current) return;
+    side = index > current ? 1 : -1;
+    current = index;
+    if (!drag?.moved) animate();
   };
 
   nav.addEventListener('pointerdown', e => {
     if (drag || e.button > 0) return;
     swallow = false;
-    drag = { id: e.pointerId, x: e.clientX, from: pos, moved: false, last: pos, time: e.timeStamp, speed: 0, step: Math.round(pos) };
+    drag = { id: e.pointerId, x: e.clientX, dx: 0, moved: false, armed: false };
   });
   nav.addEventListener('pointermove', e => {
     if (!drag || e.pointerId !== drag.id) return;
-    const dx = e.clientX - drag.x;
+    drag.dx = e.clientX - drag.x;
     if (!drag.moved) {
-      if (Math.abs(dx) < 8) return;
+      if (Math.abs(drag.dx) < MIN) return;
       drag.moved = true;
       stop();
-      drag.from = pos + dx / space();
       try { nav.setPointerCapture(e.pointerId); } catch { /* segue sem captura */ }
       nav.classList.add('dragging');
     }
-    pos = drag.from - dx / space();
-    const dt = e.timeStamp - drag.time;
-    if (dt > 0) drag.speed = (pos - drag.last) / dt;
-    drag.last = pos; drag.time = e.timeStamp;
-    if (Math.round(pos) !== drag.step) { drag.step = Math.round(pos); onStep(); }
+    // arrastar para a esquerda vai para a aba da direita (como virar a página); nas pontas não passa
+    const dir = -Math.sign(drag.dx), next = current + dir;
+    const reach = Math.min(1, Math.abs(drag.dx) / (NEXT * 1.8));
+    focus = items.map(() => 0);
+    if (dir && next >= 0 && next < n) {
+      side = dir;
+      focus[current] = 1 - reach; focus[next] = reach;
+      const armed = Math.abs(drag.dx) >= NEXT;
+      if (armed && !drag.armed) onStep();
+      drag.armed = armed;
+    } else {
+      focus[current] = 1;
+      drag.armed = false;
+    }
     paint();
   });
   const release = e => {
@@ -94,12 +99,14 @@ const Wheel = ({ nav, items, onPick, onStep }) => {
     nav.classList.remove('dragging');
     swallow = true;
     setTimeout(() => { swallow = false; }, 50);
-    // um empurrão rápido leva a roda um pouco mais longe
-    const fling = e.type === 'pointerup' && e.timeStamp - d.time < 80 ? Math.max(-1.5, Math.min(1.5, d.speed * 140)) : 0;
-    const to = Math.round(pos + fling);
-    spin(to);
-    mark(mod(to));
-    onPick(items[mod(to)][0]);
+    const next = current - Math.sign(d.dx);
+    if (e.type === 'pointerup' && d.armed && next >= 0 && next < n) {
+      side = -Math.sign(d.dx);
+      current = next;
+      mark(next);
+      animate();
+      onPick(items[next][0]);
+    } else animate();
   };
   nav.addEventListener('pointerup', release);
   nav.addEventListener('pointercancel', release);

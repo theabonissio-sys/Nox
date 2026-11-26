@@ -20,6 +20,11 @@
   const record = date => S.records.find(r => r.date === date);
   const reward = id => S.rewards.find(r => r.id === id);
   const level = () => L.levelInfo(L.totalXp(S.rewards));
+  const unlocked = () => L.unlockedBy(S.rewards);
+  const myAvatar = () => L.wearable(S.settings.avatar, unlocked());
+  /* miniatura: o avatar usando um item, com o recorte que mostra melhor aquela parte */
+  const VIEWS = { head: '30 28 140 140', eyes: '45 55 110 110', mouth: '48 70 104 104', extra: '45 62 110 110', hair: '18 4 164 164', outfit: '24 80 152 120', glasses: '40 48 120 120', hat: '14 -2 172 172', bg: '0 0 200 200' };
+  const thumb = (part, id, base = myAvatar()) => Avatar.svg({ ...base, [part]: id }, { view: VIEWS[part], cls: 'thumb', label: '' });
 
   /* ---------- componentes ---------- */
   const bar = (pct, cls = '') => `<div class="bar ${cls}" role="progressbar" aria-valuenow="${Math.round(pct * 100)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${Math.min(100, pct * 100)}%"></i></div>`;
@@ -62,8 +67,8 @@
       const scale = Math.max(S.settings.goal, ...wr.map(r => r.minutes));
       const daily = L.missionsFor(S.records, 'daily', t);
       return `
-      <header class="top"><div><p class="date">${cap(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
-        <h1>${hello}${S.settings.name ? `, ${esc(S.settings.name)}` : ''}</h1></div><span class="brand">NOX</span></header>
+      <header class="top home-top"><button class="me" data-act="avatar" aria-label="Editar seu avatar">${Avatar.svg(myAvatar(), { cls: 'live' })}<i>${icon('edit')}</i></button><div class="grow"><p class="date">${cap(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
+        <h1>${hello}${S.settings.name ? `, ${esc(S.settings.name)}` : ''}</h1></div></header>
       <button class="bubble-btn" data-act="bubble"><span class="orbs"><i></i><i></i><i></i></span><span class="grow"><b>Bolha de Sonhos</b><small>${S.friends.length ? plural(S.friends.length, 'amigo na sua bolha', 'amigos na sua bolha') : 'Convide um amigo'}</small></span>${icon('right')}</button>
       ${sleepCard()}
       <section class="card hero">
@@ -74,7 +79,7 @@
         <button class="btn primary block" data-act="register">${icon('plus')} REGISTRAR SONO</button>
         ${S.session ? '' : `<button class="btn ghost block" data-act="sleep-start">${icon('moon')} Vou dormir</button>`}
       </section>
-      ${levelCard()}${backupCard()}
+      ${levelCard()}${nextItemCard()}${backupCard()}
       <section class="card"><div class="row between"><h3>Sua semana</h3><span class="muted">${wr.length ? `Média ${L.fmtDur(L.stats(wr).avg)}` : 'Sem registros'}</span></div>
         <div class="week">${week.map(d => {
           const r = record(d);
@@ -148,22 +153,26 @@
         const n = L.MEDALS.filter(m => reward(`a:${m.id}`)).length;
         body = `<p class="muted center">${n} de ${L.MEDALS.length} medalhas desbloqueadas</p><div class="medals">${L.MEDALS.map(m => {
           const r = reward(`a:${m.id}`), p = L.medalProgress(m, S.records);
-          return `<article class="card medal-card ${r ? '' : 'locked'}"><button class="medal-open" data-act="medal" data-v="${m.id}">${medal(m, !!r)}<h3>${m.name}</h3><p>${m.desc}</p>
+          return `<article class="card medal-card ${r ? '' : 'locked'}"><button class="medal-open" data-act="medal" data-v="${m.id}">${medal(m, !!r)}<h3>${m.name}</h3><p>${m.desc}</p><span class="gift">${icon('sparkle')} ${L.avatarReward(m.id).name}</span>
             <small>${r ? `Desbloqueada em ${fmtDate(r.date, { day: '2-digit', month: '2-digit', year: 'numeric' })}` : `Bloqueada · ${p}/${m.target}`}</small></button>
             ${r ? `<button class="btn ghost small" data-act="share-medal" data-v="${m.id}">${icon('share')} Compartilhar</button>` : bar(p / m.target)}</article>`;
         }).join('')}</div>`;
+      } else if (S.achTab === 'avatar') {
+        body = wardrobe();
       } else {
         const list = personalRecords();
         body = list.length ? list.map((r, i) => `<article class="card record-row"><span class="stat-ico">${icon(r.iconName)}</span><div class="grow"><small>${r.title}</small><b>${r.value}</b><small>${r.sub}</small></div>
           <button class="icon-btn" data-act="share-record" data-v="${i}" aria-label="Compartilhar ${r.title}">${icon('share')}</button></article>`).join('')
           : empty('star', 'Seus recordes vão aparecer aqui', 'Registre sua primeira noite para começar.');
       }
-      return `${header('Conquistas', 'Sua evolução pessoal')}${levelCard()}${seg('ach', [['missoes', 'Missões'], ['medalhas', 'Medalhas'], ['recordes', 'Recordes']], S.achTab)}${body}`;
+      return `${header('Conquistas', 'Sua evolução pessoal')}${levelCard()}${seg('ach', [['missoes', 'Missões'], ['medalhas', 'Medalhas'], ['recordes', 'Recordes'], ['avatar', 'Avatar']], S.achTab)}${body}`;
     },
 
     config() {
       const s = S.settings;
       return `${header('Configurações')}
+      <section class="card"><div class="row">${Avatar.svg(myAvatar(), { cls: 'mid live' })}<div class="grow"><h3>Seu avatar</h3><p class="muted">${plural(unlockedCount(), 'item liberado', 'itens liberados')} de ${L.MEDALS.length}</p></div></div>
+        <button class="btn ghost block" data-act="avatar">${icon('edit')} Editar avatar</button></section>
       <section class="card form"><h3>Perfil e meta</h3>
         <label>Como quer ser chamado?<input id="set-name" maxlength="30" value="${esc(s.name)}" placeholder="Seu nome (opcional)" autocomplete="off"></label>
         ${ageField(s.age)}${goalField(s.goal, s.age)}
@@ -185,7 +194,7 @@
         <button class="btn ghost block" data-act="export">${icon('download')} Exportar registros</button>
         <button class="btn ghost block" data-act="import">${icon('upload')} Importar backup</button>
         <input type="file" id="file" accept=".json,application/json" hidden></section>
-      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.6.</p>
+      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.7.</p>
         <button class="btn ghost block" data-act="tour">${icon('sparkle')} Ver apresentação</button>
         <p class="muted">${icon('shield')} Sem conta, sem servidor e sem rastreamento. Funciona offline depois de instalado. Dados só saem do aparelho quando você envia um convite, imagem ou backup.</p>
         <p class="muted">As sugestões de meta seguem as faixas da National Sleep Foundation. O NOX não é um dispositivo médico; se o sono estiver preocupando você, converse com um profissional de saúde.</p></section>
@@ -201,10 +210,10 @@
     const s = S.session;
     if (!s) return '';
     const sum = L.sessionSummary(s);
-    if (s.status === 'ended') return `<section class="card sleep"><p class="eyebrow">NOITE PRONTA PARA SALVAR</p><h2>${L.fmtDur(sum.minutes)} de sono</h2><p class="muted">Das ${sum.bed} às ${sum.wake}</p>
+    if (s.status === 'ended') return `<section class="card sleep">${Avatar.svg(myAvatar(), { cls: 'big live' })}<p class="eyebrow">NOITE PRONTA PARA SALVAR</p><h2>${L.fmtDur(sum.minutes)} de sono</h2><p class="muted">Das ${sum.bed} às ${sum.wake}</p>
       <button class="btn primary block" data-act="sleep-review">Conferir e salvar</button>${s.auto ? '<p class="note">Desligado no limite de 10 horas. Confira o horário em que acordou.</p>' : '<button class="btn ghost block" data-act="sleep-undo">Continuar o cronômetro</button>'}<button class="link" data-act="sleep-cancel">Descartar</button></section>`;
     const awake = s.status === 'awake';
-    return `<section class="card sleep"><p class="eyebrow">${awake ? 'ACORDADO NO MEIO DA NOITE' : 'CRONÔMETRO DE SONO'}</p>
+    return `<section class="card sleep">${Avatar.svg(myAvatar(), { cls: awake ? 'big live' : 'big asleep', sleep: !awake })}<p class="eyebrow">${awake ? 'ACORDADO NO MEIO DA NOITE' : 'CRONÔMETRO DE SONO'}</p>
       <strong class="timer" id="timer" role="timer">${timerText(sum.elapsed)}</strong>
       <p class="muted">Começou às ${sum.bed}${sum.awake ? ` · ${sum.awake} min acordado` : ''} · desliga sozinho em 10h</p>
       <button class="btn primary block" data-act="sleep-wake">${awake ? 'Levantei' : 'Acordei'}</button>
@@ -486,7 +495,10 @@
     f();
   };
   const closeSheet = () => { const had = !!sheetClose; hideSheet(); if (had && history.state?.sheet) history.back(); };
-  window.addEventListener('popstate', () => { if (!history.state?.sheet) hideSheet(); });
+  window.addEventListener('popstate', () => {
+    if (editing && !history.state?.editor) closeEditor();
+    if (!history.state?.sheet) hideSheet();
+  });
 
   const ask = ({ title, text, ok = 'Confirmar', cancel = 'Cancelar', danger, word }) => new Promise(resolve => {
     let answer = false;
@@ -553,6 +565,7 @@
       <div class="party-box" role="alertdialog" aria-label="${c.title}" style="--a:${colors[0]};--b:${colors[1]}"><p class="eyebrow">${c.kicker}</p>
       <div class="stage"><span class="rays"></span><span class="wave"></span><span class="wave w2"></span>${Array.from({ length: 18 }, (_, i) => `<span class="spark" style="--r:${i * 20}deg;--l:${90 + (i % 3) * 26}px;--c:${i % 2 ? colors[0] : colors[1]}"></span>`).join('')}${c.art}</div>
       <h2>${c.title}</h2><p>${c.text}</p>${c.xp ? `<strong class="xp-pop" data-xp="${c.xp}">+0 XP</strong>` : ''}
+      ${c.medalId ? giftRow(c.medalId) : ''}
       ${next ? `<div class="teaser"><small>Próxima conquista: <b>${next.m.name}</b> · ${next.p}/${next.m.target}</small>${bar(next.p / next.m.target)}</div>` : ''}
       ${c.medalId ? `<button class="btn ghost block" data-act="share-medal" data-v="${c.medalId}">${icon('share')} Compartilhar</button>` : ''}
       <button class="btn primary block" data-act="party-next">${celebrations.length > 1 ? `Ver a próxima (${celebrations.length - 1})` : 'Quero mais'}</button></div>`;
@@ -762,7 +775,7 @@
       const data = L.parseBackup(await file.text());
       if (!await ask({ title: 'Importar backup?', text: `O arquivo tem ${plural(data.records.length, 'noite', 'noites')}. Os dados atuais deste aparelho (${plural(S.records.length, 'noite', 'noites')}) serão substituídos.`, ok: 'Substituir pelos do arquivo', danger: S.records.length > 0 })) return;
       const rewards = data.rewards.concat(L.evaluate(data.records, data.rewards));
-      const settings = { ...data.settings, onboarded: true, tour: true };
+      const settings = { ...data.settings, onboarded: true, tour: true, avatar: data.settings.avatar || S.settings.avatar };
       await DB.commit({ replace: true, put: data.records, rewards, settings });
       await DB.setMeta('friends', data.friends);
       Object.assign(S, { records: data.records, rewards, settings, friends: data.friends });
@@ -774,11 +787,11 @@
   const openBubble = () => {
     const t = L.today();
     const mine = S.records.filter(r => r.tm).map(r => [r.date, r.tm, r.goal]);
-    const people = [{ id: 'me', name: S.settings.name || 'Você', nights: mine }, ...S.friends]
+    const people = [{ id: 'me', name: S.settings.name || 'Você', nights: mine, avatar: myAvatar() }, ...S.friends]
       .map(p => ({ ...p, w: L.weekStats(p.nights, t) })).sort((a, b) => b.w.met - a.w.met || b.w.count - a.w.count);
     openSheet(`<h2>Bolha de Sonhos</h2><p class="muted">Últimos 7 dias. Só contam noites medidas com o <b>Vou dormir</b>. Bolhas maiores têm mais noites na meta.</p>
-      <div class="dreams">${people.map((p, i) => `<div class="dream ${p.id === 'me' ? 'me' : ''}" style="--s:${96 + p.w.met * 9}px;--i:${i}"><b>${esc(p.name)}</b><span>${p.w.avg ? L.fmtDur(p.w.avg) : '—'}</span><small>${p.w.count ? `${p.w.met}/${p.w.count} na meta` : 'sem noites'}</small></div>`).join('')}</div>
-      ${S.friends.map(f => `<div class="row between line"><div class="grow"><b>${esc(f.name)}</b><br><small class="muted">Atualizado em ${fmtDate(f.at, { day: 'numeric', month: 'short' })}</small></div><button class="icon-btn" data-act="friend-remove" data-v="${f.id}" aria-label="Remover ${esc(f.name)}">${icon('trash')}</button></div>`).join('')}
+      <div class="dreams">${people.map((p, i) => `<div class="dream ${p.id === 'me' ? 'me' : ''}" style="--s:${112 + p.w.met * 9}px;--i:${i}">${p.avatar ? Avatar.svg(p.avatar, { cls: 'tiny', label: '' }) : ''}<b>${esc(p.name)}</b><span>${p.w.avg ? L.fmtDur(p.w.avg) : '—'}</span><small>${p.w.count ? `${p.w.met}/${p.w.count} na meta` : 'sem noites'}</small></div>`).join('')}</div>
+      ${S.friends.map(f => `<div class="row between line">${f.avatar ? Avatar.svg(f.avatar, { cls: 'small', label: '' }) : ''}<div class="grow"><b>${esc(f.name)}</b><br><small class="muted">Atualizado em ${fmtDate(f.at, { day: 'numeric', month: 'short' })}</small></div><button class="icon-btn" data-act="friend-remove" data-v="${f.id}" aria-label="Remover ${esc(f.name)}">${icon('trash')}</button></div>`).join('')}
       <button class="btn primary block" data-act="invite">${icon('share')} Convidar amigo</button>
       <button class="btn ghost block" data-act="paste-invite">Colar convite recebido</button>
       <p class="note">Não há servidor: os números de um amigo mudam quando ele envia um convite novo. O convite leva seu nome e suas noites medidas dos últimos 14 dias; envie só para quem você quiser.</p>`);
@@ -790,7 +803,7 @@
       <button class="btn primary block" id="send">${icon('share')} Enviar convite</button><button class="btn ghost block" id="copy-inv">${icon('copy')} Copiar link</button>`);
     const input = $('#inv-name', el);
     const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => (b % 36).toString(36)).join('');
-    const link = () => `${location.origin}${location.pathname}#amigo=${L.makeInvite({ ...S.settings, name: input.value.trim().slice(0, 30), friendId: S.settings.friendId || draftId }, S.records)}`;
+    const link = () => `${location.origin}${location.pathname}#amigo=${L.makeInvite({ ...S.settings, avatar: S.settings.avatar && myAvatar(), name: input.value.trim().slice(0, 30), friendId: S.settings.friendId || draftId }, S.records)}`;
     const draftId = S.settings.friendId || newId();
     const keep = () => saveSettings({ name: input.value, friendId: draftId });
     $('#send', el).onclick = async () => {
@@ -892,7 +905,9 @@
   const onboard = () => {
     const el = $('#intro');
     el.hidden = false;
+    el.className = step === 'avatar' ? 'studio' : '';
     document.body.classList.add('locked');
+    if (step === 'avatar') return studio();
     if (step === 'tour') {
       el.innerHTML = `<div class="intro-top"><span class="brand">NOX</span><button class="link" data-act="skip">Pular</button></div>
         <div id="track" tabindex="0" aria-label="Apresentação do NOX">${SLIDES.map(([title, text, art]) => `<section class="t-slide"><div class="t-art">${art()}</div><h1>${title}</h1><p>${text}</p></section>`).join('')}</div>
@@ -912,13 +927,78 @@
     }
   };
   const closeIntro = () => { $('#intro').hidden = true; document.body.classList.remove('locked'); };
-  /* fim da apresentação: quem é novo escolhe a meta; quem já usa volta para o app */
+  /* fim da apresentação: depois vem o avatar (e a meta, para quem é novo) */
   const endTour = async () => {
-    if (!S.settings.onboarded) { step = 'goal'; return onboard(); }
-    closeIntro();
+    if (!S.settings.onboarded) return openStudio();
     await saveSettings({ tour: true });
+    if (!S.settings.avatar) return openStudio();
+    closeIntro();
     attend();
   };
+
+  /* ---------- criador de avatar ---------- */
+  const TABS_AV = [['head', 'Rosto', 'skin'], ['hair', 'Cabelo', 'hairColor'], ['eyes', 'Olhos'], ['mouth', 'Boca'], ['extra', 'Detalhes'], ['outfit', 'Roupa', 'outfitColor'], ['glasses', 'Óculos'], ['hat', 'Chapéu'], ['bg', 'Fundo']];
+  const COLOR_NAME = { skin: 'Tom de pele', hairColor: 'Cor do cabelo', outfitColor: 'Cor da roupa' };
+  let draft = null, part = 'head', editing = false; // editing: aberto de dentro do app
+
+  const openStudio = (startPart = 'head', fromApp = false) => {
+    draft = L.wearable(setup.avatar && !S.settings.onboarded ? setup.avatar : S.settings.avatar, unlocked());
+    part = startPart; step = 'avatar'; editing = fromApp;
+    if (fromApp) try { history.pushState({ editor: true }, ''); } catch { /* sem histórico */ }
+    onboard();
+  };
+  const closeEditor = () => { editing = false; closeIntro(); render(); };
+  const leaveEditor = () => { const back = history.state?.editor; closeEditor(); if (back) history.back(); };
+
+  const studio = () => {
+    $('#intro').innerHTML = `<div class="intro-top">${editing ? '<button class="link" data-act="av-cancel">Cancelar</button>' : '<span class="brand">NOX</span>'}<button class="link" data-act="av-random">🎲 Sortear</button></div>
+      <h1 class="center">${editing || S.settings.avatar ? 'Seu avatar' : 'Crie seu avatar'}</h1>
+      <div id="av-preview"></div>
+      <div class="av-tabs" role="tablist">${TABS_AV.map(([k, name]) => `<button role="tab" data-act="av-tab" data-v="${k}">${name}</button>`).join('')}</div>
+      <div id="av-options"></div>
+      <button class="btn primary block" data-act="av-save">${S.settings.onboarded ? 'SALVAR AVATAR' : 'CONTINUAR'}</button>`;
+    paintPreview(); paintOptions();
+  };
+  const paintPreview = () => { $('#av-preview').innerHTML = Avatar.svg(draft, { cls: 'live boop', label: 'Seu avatar' }); };
+  const paintOptions = (keep = false) => {
+    const box = $('#av-options'), y = box.scrollTop, have = unlocked(), color = TABS_AV.find(t => t[0] === part)[2];
+    $$('.av-tabs button').forEach(b => {
+      const on = b.dataset.v === part;
+      b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
+      if (on && !keep) b.scrollIntoView({ block: 'nearest', inline: 'center' });
+    });
+    box.innerHTML = `${color ? `<div class="swatches" role="group" aria-label="${COLOR_NAME[color]}">${L.AVATAR_COLORS[color].map((c, i) => `<button data-act="av-color" data-v="${color}:${i}" class="${draft[color] === i ? 'on' : ''}" style="--c:${c}" aria-label="${COLOR_NAME[color]} ${i + 1}" aria-pressed="${draft[color] === i}"></button>`).join('')}</div>` : ''}
+      <div class="av-grid">${L.AVATAR_PARTS[part].map(([id, name, need]) => {
+        const locked = need && !have.has(need);
+        return `<button data-act="av-set" data-v="${id}" class="${draft[part] === id ? 'on' : ''} ${locked ? 'locked' : ''}" aria-pressed="${draft[part] === id}" aria-label="${name}${locked ? ', bloqueado' : ''}">${thumb(part, id, draft)}<small>${name}</small>${locked ? `<i>${icon('lock')}</i>` : ''}</button>`;
+      }).join('')}</div>`;
+    box.scrollTop = keep ? y : 0;
+  };
+
+  /* ---------- avatar nas telas ---------- */
+  const unlockedCount = () => L.MEDALS.filter(m => unlocked().has(m.id)).length;
+  const giftRow = medalId => {
+    const g = L.avatarReward(medalId), has = unlocked().has(medalId), on = has && myAvatar()[g.part] === g.id;
+    return `<div class="gift-row ${has ? 'open' : ''}">${thumb(g.part, g.id)}<div class="grow"><small>${has ? 'Item do avatar liberado' : 'Libera para o avatar'}</small><b>${g.name}</b></div>
+      ${has ? `<button class="btn ${on ? 'ghost' : 'primary'} small" data-act="av-wear" data-v="${medalId}" ${on ? 'disabled' : ''}>${on ? 'Usando' : 'Usar'}</button>` : icon('lock')}</div>`;
+  };
+  /* o item que está mais perto de ser liberado */
+  const nextItemCard = () => {
+    const next = nextGoal();
+    if (!next) return '';
+    const g = L.avatarReward(next.m.id);
+    return `<button class="card next-item" data-act="ach-avatar">${thumb(g.part, g.id)}<span class="grow"><small>Próximo item do avatar</small><b>${g.name}</b><small>${next.m.desc} · ${next.p}/${next.m.target}</small>${bar(next.p / next.m.target)}</span></button>`;
+  };
+  const wardrobe = () => {
+    const have = unlocked();
+    return `<section class="card wardrobe-top">${Avatar.svg(myAvatar(), { cls: 'big live' })}<h3>${unlockedCount()} de ${L.MEDALS.length} itens liberados</h3>${bar(unlockedCount() / L.MEDALS.length)}
+      <button class="btn primary block" data-act="avatar">${icon('edit')} Editar avatar</button></section>
+      <div class="medals">${L.MEDALS.map(m => ({ m, g: L.avatarReward(m.id), has: have.has(m.id) })).sort((a, b) => b.has - a.has).map(({ m, g, has }) => {
+        const p = L.medalProgress(m, S.records);
+        return `<article class="card item-card ${has ? '' : 'locked'}"><button class="medal-open" data-act="medal" data-v="${m.id}">${thumb(g.part, g.id)}<h3>${g.name}</h3><p>Medalha ${m.name}</p><small>${has ? 'Liberado' : `${p}/${m.target}`}</small></button>${has ? '' : bar(p / m.target)}</article>`;
+      }).join('')}</div>`;
+  };
+
 
   /* ---------- eventos ---------- */
   const shiftMonth = (k, n) => { const d = L.parse(`${k}-01`); d.setMonth(d.getMonth() + n); return L.monthKey(L.iso(d)); };
@@ -933,7 +1013,7 @@
     period: v => { S.period = v; render(); playChart(); }, replay: () => { $('.chart-card').scrollIntoView({ block: 'start' }); playChart(); }, ach: v => { S.achTab = v; render(); },
     medal: v => {
       const m = L.MEDALS.find(x => x.id === v), r = reward(`a:${v}`), p = L.medalProgress(m, S.records);
-      openSheet(`<div class="center ${r ? '' : 'locked'}">${medal(m, !!r)}<h2>${m.name}</h2><p class="muted">${m.desc}</p><p class="xp">+${m.xp} XP</p>
+      openSheet(`<div class="center ${r ? '' : 'locked'}">${medal(m, !!r)}<h2>${m.name}</h2><p class="muted">${m.desc}</p><p class="xp">+${m.xp} XP</p>${giftRow(m.id)}
         ${r ? `<p class="muted">Desbloqueada em ${fmtDate(r.date)}</p><button class="btn primary block" data-act="share-medal" data-v="${v}">${icon('share')} Compartilhar</button>` : `${bar(p / m.target)}<p class="muted">Bloqueada · ${p} de ${m.target}</p>`}</div>`);
     },
     'share-medal': v => { celebrations.length = 0; nextCelebration(); shareMedal(v); },
@@ -984,6 +1064,36 @@
     },
     next: () => (slide < SLIDES.length - 1 ? showSlide(slide + 1) : endTour()), skip: () => endTour(), dot: v => showSlide(Number(v)),
     tour: () => { step = 'tour'; onboard(); },
+    avatar: () => openStudio('head', true),
+    'ach-avatar': () => { S.achTab = 'avatar'; go('conquistas'); },
+    'av-tab': v => { part = v; paintOptions(); },
+    'av-color': v => { const [k, i] = v.split(':'); draft[k] = Number(i); paintPreview(); paintOptions(true); },
+    'av-set': v => {
+      const [, name, need] = L.AVATAR_PARTS[part].find(i => i[0] === v);
+      if (need && !unlocked().has(need)) {
+        const m = L.MEDALS.find(x => x.id === need);
+        return toast(`🔒 ${name}: ganhe a medalha “${m.name}” (${L.medalProgress(m, S.records)}/${m.target}). ${m.desc}`);
+      }
+      draft[part] = v; paintPreview(); paintOptions(true);
+    },
+    'av-random': () => { draft = L.randomAvatar(unlocked()); paintPreview(); paintOptions(true); },
+    'av-cancel': () => leaveEditor(),
+    'av-save': async () => {
+      if (!S.settings.onboarded) { setup.avatar = draft; step = 'goal'; return onboard(); }
+      // mantém guardado o item travado que a pessoa não trocou (volta se a medalha voltar)
+      const shown = myAvatar(), kept = { ...(S.settings.avatar || {}) };
+      Object.keys(draft).forEach(k => { if (!S.settings.avatar || draft[k] !== shown[k]) kept[k] = draft[k]; });
+      if (!await saveSettings({ avatar: kept })) return;
+      const first = !editing;
+      leaveEditor(); toast('Avatar salvo', 'ok');
+      if (first) attend();
+    },
+    'av-wear': async v => {
+      const g = L.avatarReward(v);
+      if (!await saveSettings({ avatar: { ...(S.settings.avatar || myAvatar()), [g.part]: g.id } })) return;
+      $$(`[data-act="av-wear"][data-v="${v}"]`).forEach(b => { b.textContent = 'Usando'; b.disabled = true; b.className = 'btn ghost small'; });
+      render(); toast(`${g.name} no seu avatar`, 'ok');
+    },
     finish: async () => {
       if (!await saveSettings({ ...setup, name: $('#set-name').value, onboarded: true, tour: true })) return;
       closeIntro(); render(true); setTimeout(attend, 300);
@@ -997,7 +1107,7 @@
         await DB.wipe();
         Object.assign(S, { records: [], rewards: [], settings: L.cleanSettings(), session: null, friends: [], tab: 'inicio' });
         syncNotice();
-        step = 'tour'; setup = { name: '', age: 'a', goal: 480 };
+        step = 'tour'; editing = false; setup = { name: '', age: 'a', goal: 480 };
         applyTheme(); render(); onboard();
       } catch { toast('Não foi possível apagar os dados.', 'bad'); }
     },
@@ -1017,7 +1127,7 @@
     const { id, value } = e.target, intro = !$('#intro').hidden;
     if (id === 'set-age') {
       const goal = L.age(value).sug;
-      if (intro) { setup = { name: $('#set-name').value, age: value, goal }; onboard(); }
+      if (intro) { setup = { ...setup, name: $('#set-name').value, age: value, goal }; onboard(); }
       else if (await saveSettings({ age: value, goal })) { render(); toast(`Meta sugerida: ${L.fmtDur(goal)}`, 'ok'); }
     }
     if (id === 'set-name') { if (intro) setup.name = value; else if (await saveSettings({ name: value })) toast('Nome salvo', 'ok'); }
@@ -1100,6 +1210,7 @@
     applyTheme(); render(true);
     // quem já usava vê a apresentação uma vez, sem interromper um cronômetro ligado
     if (!S.settings.onboarded || (!S.settings.tour && !S.session)) onboard();
+    else if (!S.settings.avatar && !S.session) openStudio();
     if (S.settings.onboarded) navigator.storage?.persist?.().catch(() => {});
     setTimeout(() => { const s = $('#splash'); s.classList.add('bye'); setTimeout(() => s.remove(), 250); }, 200);
     if ('serviceWorker' in navigator && document.querySelector('link[rel=manifest]')) navigator.serviceWorker.register('sw.js').then(watchUpdates).catch(() => {});
