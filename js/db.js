@@ -30,8 +30,9 @@ const DB = (() => {
   const load = async () => {
     const reqs = await run('readonly', s => ({
       records: s('records').getAll(), rewards: s('rewards').getAll(), settings: s('meta').get('settings'), session: s('meta').get('session'),
+      friends: s('meta').get('friends'),
     }));
-    return { records: reqs.records.result, rewards: reqs.rewards.result, settings: reqs.settings.result, session: reqs.session.result || null };
+    return { records: reqs.records.result, rewards: reqs.rewards.result, settings: reqs.settings.result, session: reqs.session.result || null, friends: reqs.friends.result || [] };
   };
 
   /* Uma única transação: ou tudo é salvo, ou nada. */
@@ -58,7 +59,10 @@ const DB = (() => {
     return out.session;
   };
 
+  const getMeta = async key => (await run('readonly', s => s('meta').get(key))).result;
+  const setMeta = (key, value) => run('readwrite', s => s('meta').put(value, key));
+
   const wipe = () => run('readwrite', s => STORES.forEach(n => s(n).clear()));
 
-  return { open, load, commit, wipe, updateSession };
+  return { open, load, commit, wipe, updateSession, getMeta, setMeta };
 })();

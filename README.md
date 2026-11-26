@@ -16,8 +16,13 @@ A hospedagem só entrega os arquivos do app. Seus registros não são enviados p
 ## Modo Vou dormir
 Toque em "Vou dormir" na tela inicial. A notificação traz os botões de acordar e pausar e volta se for dispensada enquanto o cronômetro estiver ligado. Ao encerrar, o NOX mostra o resultado para conferir antes de salvar. Os segundos do cronômetro aparecem só dentro do app.
 
+## Regras e extras
+- No máximo 14 horas por dia; só dá para registrar a noite no próprio dia.
+- O cronômetro desliga sozinho em 10 horas (aplicado quando o app ou a notificação são usados).
+- Bolha de Sonhos: convites por link, sem servidor. Só noites do modo Vou dormir.
+- Lembrete diário e backup automático dependem do que o Android e o Chrome permitem.
+
 ## XP e correções
-- Noites anotadas com mais de 3 dias de atraso não valem XP.
 - Prêmios ganhos hoje são desfeitos se a correção ou exclusão de um registro os invalidar.
 - Sonecas são somadas ao registro do dia.
 

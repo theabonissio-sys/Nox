@@ -13,7 +13,7 @@
   const TABS = [['inicio', 'Início', 'home'], ['calendario', 'Calendário', 'calendar'], ['progresso', 'Progresso', 'chart'], ['conquistas', 'Conquistas', 'trophy'], ['config', 'Ajustes', 'gear']];
 
   const S = {
-    records: [], rewards: [], settings: L.cleanSettings(), session: null, tab: 'inicio', day: L.today(),
+    records: [], rewards: [], settings: L.cleanSettings(), session: null, friends: [], tab: 'inicio', day: L.today(),
     calMonth: L.monthKey(L.today()), progMonth: L.monthKey(L.today()), period: '7', achTab: 'missoes', installEvt: null,
   };
 
@@ -64,6 +64,7 @@
       return `
       <header class="top"><div><p class="date">${cap(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
         <h1>${hello}${S.settings.name ? `, ${esc(S.settings.name)}` : ''}</h1></div><span class="brand">NOX</span></header>
+      <button class="bubble-btn" data-act="bubble"><span class="orbs"><i></i><i></i><i></i></span><span class="grow"><b>Bolha de Sonhos</b><small>${S.friends.length ? plural(S.friends.length, 'amigo na sua bolha', 'amigos na sua bolha') : 'Convide um amigo'}</small></span>${icon('right')}</button>
       ${sleepCard()}
       <section class="card hero">
         <p class="eyebrow">SEU SONO${when ? ` · ${when}` : ''}</p>
@@ -90,7 +91,7 @@
     calendario() {
       const k = S.calMonth, t = L.today(), days = L.monthDays(k);
       const mr = days.map(record).filter(Boolean);
-      return `${header('Calendário', 'Toque em um dia para ver ou registrar')}
+      return `${header('Calendário', 'Toque em um dia para ver os detalhes')}
       <section class="card">
         <div class="month-nav"><button class="icon-btn" data-act="cal-prev" aria-label="Mês anterior">${icon('left')}</button>
           <h3>${cap(fmtDate(`${k}-01`, { month: 'long', year: 'numeric' }))}</h3>
@@ -117,7 +118,7 @@
         ${S.period === 'mes' ? `<div class="month-nav"><button class="icon-btn" data-act="prog-prev" aria-label="Mês anterior">${icon('left')}</button><h3>${label}</h3><button class="icon-btn" data-act="prog-next" aria-label="Próximo mês" ${S.progMonth >= L.monthKey(t) ? 'disabled' : ''}>${icon('right')}</button></div>`
           : `<h3>${label}</h3>`}
         ${pr.length ? `<div class="row between period"><div><small>Média</small><b>${L.fmtDur(ps.avg)}</b></div><div><small>Noites</small><b>${ps.count}</b></div><div><small>Na meta</small><b>${ps.metCount} de ${ps.count}</b></div></div>
-          ${chart(days)}<p class="readout" id="readout" aria-live="polite">Toque em uma barra para ver os detalhes</p>
+          ${chart(days)}<p class="readout" id="readout" aria-live="polite">Toque no gráfico para ver os detalhes</p>
           <div class="legend"><span><i class="met"></i>Meta atingida</span><span><i class="low"></i>Abaixo</span><span><i class="line"></i>Meta atual</span></div>`
           : '<div class="empty small"><p>Nenhum registro neste período.</p><button class="btn ghost" data-act="register">Registrar sono</button></div>'}
       </section>
@@ -171,15 +172,20 @@
           <button type="button" class="icon-btn" data-act="latency" data-v="-5" aria-label="Diminuir 5 minutos">${icon('minus')}</button><b>${s.latency} min</b>
           <button type="button" class="icon-btn" data-act="latency" data-v="5" aria-label="Aumentar 5 minutos">${icon('plus')}</button></div><small>Esse tempo é descontado do cronômetro.</small></div>
         ${notifyState()}</section>
+      <section class="card"><h3>Lembrete diário</h3>${seg('reminders', [['on', 'Ligado'], ['off', 'Desligado']], s.reminders ? 'on' : 'off')}
+        <p class="note">Uma frase por dia para lembrar de descansar. Precisa do app instalado e das notificações ativadas. O Android escolhe o horário e pode pular dias.</p></section>
+      <section class="card"><h3>Sons e vibração nas conquistas</h3>${seg('sounds', [['on', 'Ligado'], ['off', 'Desligado']], s.sounds ? 'on' : 'off')}</section>
       <section class="card"><h3>Aparência</h3>${seg('theme', [['dark', 'Escuro'], ['light', 'Claro']], s.theme)}</section>
       ${S.installEvt ? `<section class="card"><h3>Instalar</h3><p class="muted">Coloque o NOX na tela inicial e use offline.</p><button class="btn primary block" data-act="install">${icon('download')} Instalar aplicativo</button></section>` : ''}
       <section class="card"><h3>Backup</h3><p class="muted">Seus dados ficam só neste aparelho. Exporte um arquivo de vez em quando para não perdê-los.</p>
         <p class="note">${s.lastBackup ? `Último backup: ${fmtDate(s.lastBackup)}.` : 'Nenhum backup feito ainda.'}</p>
+        ${seg('autobackup', [['on', 'Automático'], ['off', 'Manual']], s.autoBackup ? 'on' : 'off')}
+        <p class="note">No automático, uma vez por semana, ao salvar uma noite, o arquivo vai para a pasta Downloads.</p>
         <button class="btn ghost block" data-act="export">${icon('download')} Exportar registros</button>
         <button class="btn ghost block" data-act="import">${icon('upload')} Importar backup</button>
         <input type="file" id="file" accept=".json,application/json" hidden></section>
-      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.3.</p>
-        <p class="muted">${icon('shield')} Sem conta, sem servidor e sem rastreamento. Funciona offline depois de instalado.</p>
+      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.4.</p>
+        <p class="muted">${icon('shield')} Sem conta, sem servidor e sem rastreamento. Funciona offline depois de instalado. Dados só saem do aparelho quando você envia um convite, imagem ou backup.</p>
         <p class="muted">As sugestões de meta seguem as faixas da National Sleep Foundation. O NOX não é um dispositivo médico; se o sono estiver preocupando você, converse com um profissional de saúde.</p></section>
       <button class="btn danger block" data-act="wipe">${icon('trash')} Apagar todos os dados</button>`;
     },
@@ -194,11 +200,11 @@
     if (!s) return '';
     const sum = L.sessionSummary(s);
     if (s.status === 'ended') return `<section class="card sleep"><p class="eyebrow">NOITE PRONTA PARA SALVAR</p><h2>${L.fmtDur(sum.minutes)} de sono</h2><p class="muted">Das ${sum.bed} às ${sum.wake}</p>
-      <button class="btn primary block" data-act="sleep-review">Conferir e salvar</button><button class="btn ghost block" data-act="sleep-undo">Continuar o cronômetro</button><button class="link" data-act="sleep-cancel">Descartar</button></section>`;
+      <button class="btn primary block" data-act="sleep-review">Conferir e salvar</button>${s.auto ? '<p class="note">Desligado no limite de 10 horas. Confira o horário em que acordou.</p>' : '<button class="btn ghost block" data-act="sleep-undo">Continuar o cronômetro</button>'}<button class="link" data-act="sleep-cancel">Descartar</button></section>`;
     const awake = s.status === 'awake';
     return `<section class="card sleep"><p class="eyebrow">${awake ? 'ACORDADO NO MEIO DA NOITE' : 'CRONÔMETRO DE SONO'}</p>
       <strong class="timer" id="timer" role="timer">${timerText(sum.elapsed)}</strong>
-      <p class="muted">Começou às ${sum.bed}${sum.awake ? ` · ${sum.awake} min acordado` : ''}</p>
+      <p class="muted">Começou às ${sum.bed}${sum.awake ? ` · ${sum.awake} min acordado` : ''} · desliga sozinho em 10h</p>
       <button class="btn primary block" data-act="sleep-wake">${awake ? 'Levantei' : 'Acordei'}</button>
       <button class="btn ghost block" data-act="${awake ? 'sleep-resume' : 'sleep-pause'}">${awake ? 'Voltei a dormir' : 'Acordei no meio da noite'}</button>
       <button class="link" data-act="sleep-cancel">Cancelar cronômetro</button>
@@ -225,7 +231,7 @@
   };
 
   const changeSession = async fn => {
-    try { S.session = await DB.updateSession(fn); }
+    try { S.session = await DB.updateSession(s => L.expire(fn(s))); }
     catch { toast('Não foi possível salvar o cronômetro.', 'bad'); return false; }
     render(); syncNotice(); return true;
   };
@@ -262,6 +268,7 @@
 
   const attend = () => {
     if (!S.settings.onboarded || !$('#sheet').hidden || !$('#party').hidden) return;
+    if (pendingInvite) { const code = pendingInvite; pendingInvite = ''; return acceptInvite(code); }
     if (S.session?.status === 'ended') reviewSleep(); else askAwake();
   };
 
@@ -271,21 +278,26 @@
     const W = 340, H = 200, x0 = 26, y0 = 8, ph = 164, pw = W - x0 - 2;
     const goal = S.settings.goal;
     const top = Math.ceil(Math.max(goal + 60, ...days.map(d => record(d)?.minutes || 0)) / 180) * 180;
-    const y = m => y0 + ph - m / top * ph, step = pw / days.length, bw = Math.min(26, step * .66);
-    let out = '';
+    const y = m => y0 + ph - m / top * ph, step = pw / days.length;
+    let out = '', hits = '';
     for (let m = 0; m <= top; m += 180) out += `<line class="gridline" x1="${x0}" x2="${W}" y1="${y(m)}" y2="${y(m)}"/><text x="0" y="${y(m) + 3}">${m / 60}h</text>`;
+    const pts = [];
     days.forEach((d, i) => {
       const r = record(d), cx = x0 + step * i + step / 2;
-      if (r) out += `<rect class="b ${L.met(r) ? 'met' : 'low'}" x="${cx - bw / 2}" y="${y(r.minutes)}" width="${bw}" height="${y(0) - y(r.minutes)}" rx="${Math.min(5, bw / 2)}" style="animation-delay:${i * (days.length > 7 ? 12 : 50)}ms"/>`;
+      if (r) pts.push({ x: cx, y: y(r.minutes), met: L.met(r) });
       const show = days.length <= 7 || (S.period === 'mes' ? i % 5 === 0 : (days.length - 1 - i) % 5 === 0);
       if (show) out += `<text text-anchor="middle" x="${cx}" y="${H - 6}">${days.length <= 7 ? ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][L.parse(d).getDay()] : Number(d.slice(8))}</text>`;
       const tip = `${fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' })}: ${r ? `${L.fmtDur(r.minutes)} (meta ${L.fmtDur(r.goal)})` : 'sem registro'}`;
-      out += `<rect class="hit" data-tip="${tip}" x="${x0 + step * i}" y="${y0}" width="${step}" height="${ph}"/>`;
+      hits += `<rect class="hit" data-tip="${tip}" x="${x0 + step * i}" y="${y0}" width="${step}" height="${ph}"/>`;
     });
+    // a linha liga as noites registradas; os pontos mostram onde há dado de verdade
+    const path = pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+    if (pts.length > 1) out += `<path class="area" fill="url(#ga)" d="${path} L${pts[pts.length - 1].x} ${y(0)} L${pts[0].x} ${y(0)}Z"/><path class="ln" pathLength="1" stroke="url(#gline)" d="${path}"/>`;
+    out += pts.map((p, i) => `<circle class="dot" cx="${p.x}" cy="${p.y}" r="${days.length > 7 ? 3 : 4.5}" fill="${p.met ? '#22d3ee' : '#a78bfa'}" style="animation-delay:${(pts.length > 1 ? i / (pts.length - 1) * 1.3 : 0).toFixed(2)}s"/>`).join('');
     out += `<line class="goal" x1="${x0}" x2="${W}" y1="${y(goal)}" y2="${y(goal)}"/><text class="goal-t" text-anchor="end" x="${W}" y="${y(goal) - 5}">Meta ${L.fmtDur(goal)}</text>`;
-    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de horas dormidas por dia, com linha da meta"><defs>
-      <linearGradient id="gm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#3b82f6"/></linearGradient>
-      <linearGradient id="gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs>${out}</svg>`;
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de linha das horas dormidas, com linha da meta"><defs>
+      <linearGradient id="gline" gradientUnits="userSpaceOnUse" x1="${x0}" y1="0" x2="${W}" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset=".55" stop-color="#5b7cfa"/><stop offset="1" stop-color="#c084fc"/></linearGradient>
+      <linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c5cf6" stop-opacity=".35"/><stop offset="1" stop-color="#7c5cf6" stop-opacity="0"/></linearGradient></defs>${out}${hits}</svg>`;
   };
 
   const timingCard = days => {
@@ -308,7 +320,7 @@
 
   const backupCard = () => {
     const s = S.settings, t = L.today();
-    if (S.records.length < 5 || (s.lastBackup && s.lastBackup > L.addDays(t, -14)) || s.backupSnooze > t) return '';
+    if (s.autoBackup || S.records.length < 5 || (s.lastBackup && s.lastBackup > L.addDays(t, -14)) || s.backupSnooze > t) return '';
     return `<section class="card"><h3>Proteja seus registros</h3><p class="muted">Você tem ${plural(S.records.length, 'noite salva', 'noites salvas')} só neste aparelho. Guarde um backup para não perder se trocar de celular ou limpar o navegador.</p>
       <button class="btn ghost block" data-act="export">${icon('download')} Fazer backup</button><button class="link" data-act="backup-later">Lembrar em 7 dias</button></section>`;
   };
@@ -422,14 +434,46 @@
   };
 
   const celebrations = [];
+  /* som curto e vibração; nunca travam a tela se o aparelho não permitir */
+  let audio;
+  const fanfare = big => {
+    if (!S.settings.sounds) return;
+    try {
+      navigator.vibrate?.(big ? [40, 50, 40, 50, 120] : [30, 40, 60]);
+      audio = audio || new AudioContext();
+      audio.resume();
+      (big ? [523, 659, 784, 1047, 1319] : [659, 880, 1175]).forEach((f, i) => {
+        const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + i * .09;
+        o.type = 'triangle'; o.frequency.value = f;
+        g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.12, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .45);
+        o.connect(g).connect(audio.destination); o.start(t); o.stop(t + .5);
+      });
+    } catch { /* sem som neste aparelho */ }
+  };
+  const countUp = el => {
+    const end = Number(el.dataset.xp), t0 = performance.now();
+    const tick = t => { const p = Math.min(1, Math.max(0, (t - t0 - 350) / 900)); el.textContent = `+${Math.round(end * (1 - (1 - p) ** 3))} XP`; if (p < 1) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  };
+  /* a medalha bloqueada mais perto de sair */
+  const nextGoal = () => L.MEDALS.filter(m => !reward(`a:${m.id}`)).map(m => ({ m, p: L.medalProgress(m, S.records) })).sort((a, b) => b.p / b.m.target - a.p / a.m.target)[0];
+
   const nextCelebration = () => {
     const el = $('#party'), c = celebrations[0];
     if (!c) { el.hidden = true; el.innerHTML = ''; return; }
     el.hidden = false;
-    el.innerHTML = `<div class="confetti">${Array.from({ length: 20 }, (_, i) => `<i style="--x:${(i * 53) % 100}%;--d:${(i % 12) * 90}ms;--h:${[190, 225, 262, 290][i % 4]}"></i>`).join('')}</div>
-      <div class="party-box" role="alertdialog" aria-label="${c.title}"><p class="eyebrow">${c.kicker}</p>${c.art}<h2>${c.title}</h2><p>${c.text}</p>
+    const next = nextGoal(), colors = c.colors || ['#22d3ee', '#a855f7'];
+    el.innerHTML = `<div class="flash" style="--a:${colors[0]};--b:${colors[1]}"></div>
+      <div class="confetti">${Array.from({ length: 22 }, (_, i) => `<i style="--x:${(i * 47) % 100}%;--d:${(i % 11) * 80}ms;--h:${[48, 190, 265, 320][i % 4]}"></i>`).join('')}</div>
+      <div class="party-box" role="alertdialog" aria-label="${c.title}" style="--a:${colors[0]};--b:${colors[1]}"><p class="eyebrow">${c.kicker}</p>
+      <div class="stage"><span class="rays"></span><span class="wave"></span><span class="wave w2"></span>${Array.from({ length: 18 }, (_, i) => `<span class="spark" style="--r:${i * 20}deg;--l:${90 + (i % 3) * 26}px;--c:${i % 2 ? colors[0] : colors[1]}"></span>`).join('')}${c.art}</div>
+      <h2>${c.title}</h2><p>${c.text}</p>${c.xp ? `<strong class="xp-pop" data-xp="${c.xp}">+0 XP</strong>` : ''}
+      ${next ? `<div class="teaser"><small>Próxima conquista: <b>${next.m.name}</b> · ${next.p}/${next.m.target}</small>${bar(next.p / next.m.target)}</div>` : ''}
       ${c.medalId ? `<button class="btn ghost block" data-act="share-medal" data-v="${c.medalId}">${icon('share')} Compartilhar</button>` : ''}
-      <button class="btn primary block" data-act="party-next">Continuar</button></div>`;
+      <button class="btn primary block" data-act="party-next">${celebrations.length > 1 ? `Ver a próxima (${celebrations.length - 1})` : 'Quero mais'}</button></div>`;
+    const xp = $('.xp-pop', el);
+    if (xp) countUp(xp);
+    fanfare(!!c.medalId);
   };
 
   /* ---------- gravação ---------- */
@@ -451,26 +495,29 @@
     if (after.level > before) celebrations.push({ kicker: 'VOCÊ SUBIU DE NÍVEL', art: `<span class="lvl-badge big"><small>NÍVEL</small><b>${after.level}</b></span>`, title: after.name, text: `Você acumulou ${num(L.totalXp(S.rewards))} XP.` });
     fresh.filter(r => r.kind === 'medal').forEach(r => {
       const m = L.MEDALS.find(x => x.id === r.ref);
-      celebrations.push({ kicker: 'CONQUISTA DESBLOQUEADA', art: medal(m, true), title: m.name, text: `${m.desc} +${m.xp} XP`, medalId: m.id });
+      celebrations.push({ kicker: 'CONQUISTA DESBLOQUEADA', art: medal(m, true), title: m.name, text: m.desc, xp: m.xp, colors: m.colors, medalId: m.id });
     });
     if (celebrations.length) setTimeout(nextCelebration, 450);
+    const s = S.settings;
+    if (s.autoBackup && S.records.length >= 3 && (!s.lastBackup || s.lastBackup <= L.addDays(L.today(), -7))) await exportData(true);
   };
 
   const openForm = (date = L.today(), mode = 'new', draft = null, timer = null) => {
+    if (!timer && date !== L.today()) return toast('Só dá para registrar a noite no próprio dia.', 'bad');
     const found = record(date);
     // vindo do cronômetro, os valores medidos valem; a qualidade já anotada é mantida
-    const r = timer ? { ...draft, minutes: timer.total > 960 ? null : timer.minutes, quality: found?.quality } : found || draft || {};
+    const r = timer ? { ...draft, quality: found?.quality } : found || draft || {};
     const replaceText = d => record(d) ? `Já existe um registro nesta data (${L.fmtDur(record(d).minutes)}). Se foi uma soneca, some ao dia. Substituir apaga o anterior.` : '';
     const editing = mode === 'edit';
     const original = editing ? date : null;
     const el = openSheet(`<h2>${timer ? 'Confira sua noite' : found ? 'Editar noite' : 'Registrar sono'}</h2>
       ${timer ? `<p class="banner">Cronômetro: ${L.fmtDur(timer.total)}, menos ${timer.latency} min para pegar no sono${timer.awake ? ` e ${timer.awake} min acordado` : ''}. Ajuste se precisar.</p>
-        ${timer.total > 960 ? '<p class="banner">O cronômetro passou de 16 horas. Corrija o horário em que você acordou.</p>' : ''}<p class="banner" id="replace" ${found ? '' : 'hidden'}>${replaceText(date)}</p>`
+        ${timer.auto ? '<p class="banner">Desligado no limite de 10 horas. Corrija o horário em que acordou. Esta noite não conta na Bolha de Sonhos.</p>' : ''}<p class="banner" id="replace" ${found ? '' : 'hidden'}>${replaceText(date)}</p>`
         : found && !editing ? '<p class="banner">Já existe um registro nesta data. Você está editando esse registro.</p>' : ''}
       ${!timer && found?.nap ? `<p class="note">O total inclui ${L.fmtDur(found.nap)} de soneca.</p>` : ''}
-      <p class="note" id="late" ${!timer && (found ? found.late : L.isLate(date)) ? '' : 'hidden'}>Noite antiga: entra no histórico e nos gráficos, mas não vale XP, missões nem medalhas.</p>
+
       <form class="form" novalidate>
-        <label>Data em que você acordou<input type="date" name="date" value="${date}" max="${L.today()}" required></label>
+        <input type="hidden" name="date" value="${date}"><p class="muted">${date === L.today() ? 'Hoje' : 'Noite medida pelo cronômetro'} · ${fmtDate(date)}</p>
         <div class="two"><label>Horas dormidas<input type="number" name="h" inputmode="numeric" min="0" max="24" placeholder="7" value="${r.minutes != null ? Math.floor(r.minutes / 60) : ''}"></label>
         <label>Minutos adicionais<input type="number" name="m" inputmode="numeric" min="0" max="59" placeholder="30" value="${r.minutes != null ? r.minutes % 60 : ''}"></label></div>
         <div class="two"><label>Fui dormir <em>opcional</em><input type="time" name="bed" value="${r.bed || ''}"></label>
@@ -507,21 +554,6 @@
     f.bed.onchange = f.wake.onchange = timer ? recount : () => suggest(true);
     f.h.oninput = f.m.oninput = timer ? null : () => suggest(false);
     calc.onclick = () => { const d = Number(calc.dataset.min); f.h.value = Math.floor(d / 60); f.m.value = d % 60; calc.hidden = true; };
-    f.date.onchange = () => {
-      const d = f.date.value;
-      if (timer) {
-        const n = $('#replace', el), has = !!record(d), send = $('[type=submit]', el);
-        n.textContent = replaceText(d); n.hidden = !has; $('#nap', el).hidden = !has;
-        send.textContent = has ? 'Substituir o registro' : 'SALVAR REGISTRO';
-        send.className = `btn ${has ? 'ghost' : 'primary'} block`;
-        return;
-      }
-      if (L.validDate(d)) $('#late', el).hidden = !(record(d) ? record(d).late : L.isLate(d));
-      if (!L.validDate(d) || d > L.today() || d === original) return;
-      if (record(d)) openForm(d, mode);                 // nunca duplica: abre o que já existe
-      else if (!editing && found) openForm(d, 'new');   // data livre: formulário limpo
-      else if (!editing) draft = typed();
-    };
     let busy = false;
     form.onsubmit = async e => {
       e.preventDefault();
@@ -535,6 +567,9 @@
         const base = record(original || d);
         const late = !timer && (base ? base.late || (d !== base.date && L.isLate(d)) : L.isLate(d));
         const rec = L.cleanRecord({ date: d, minutes: h * 60 + m, goal: base ? base.goal : S.settings.goal, bed: f.bed.value, wake: f.wake.value, quality, nap: timer ? 0 : base?.nap, late });
+        if (timer && timer.tm) rec.tm = Math.min(L.TIMER_MAX, timer.tm);
+        else if (!timer && base?.tm) rec.tm = base.tm;
+        L.checkEntry(rec, L.today(), timer?.date);
         busy = true;
         closeSheet(); await settle();
         try { await saveRecord(rec, original, !!timer); }
@@ -545,24 +580,28 @@
     if (nap) nap.onclick = async () => {
       if (busy) return;
       try {
-        const rec = L.addNap(record(f.date.value), Number(f.h.value) * 60 + Number(f.m.value));
+        const base = record(f.date.value);
+        const rec = L.addNap(base, Number(f.h.value) * 60 + Number(f.m.value));
+        if (timer.tm) rec.tm = Math.min(L.TIMER_MAX, (base.tm || 0) + timer.tm);
         busy = true;
         closeSheet(); await settle();
         try { await saveRecord(rec, null, true); } catch { toast('Não foi possível salvar.', 'bad'); }
       } catch (x) { $('.error', el).textContent = x.message; }
     };
     const del = $('#del', el);
-    if (del) del.onclick = async () => {
-      closeSheet(); await settle();
-      if (!await ask({ title: 'Excluir registro?', text: `A noite de ${fmtDate(date)} sairá do calendário, dos gráficos e das médias. Prêmios ganhos hoje que dependiam dela são desfeitos. Os de dias anteriores continuam com você.`, ok: 'Excluir', danger: true })) return;
-      try {
-        const records = S.records.filter(x => x.date !== date);
-        const revoked = L.revocable(records, S.rewards);
-        await DB.commit({ remove: date, removeRewards: revoked });
-        S.records = records; S.rewards = S.rewards.filter(r => !revoked.includes(r.id));
-        render(); toast('Registro excluído', 'ok');
-      } catch { toast('Não foi possível excluir.', 'bad'); }
-    };
+    if (del) del.onclick = () => removeRecord(date);
+  };
+
+  const removeRecord = async date => {
+    closeSheet(); await settle();
+    if (!await ask({ title: 'Excluir registro?', text: `A noite de ${fmtDate(date)} sairá do calendário, dos gráficos e das médias. Não dá para registrar de novo um dia que já passou. Prêmios ganhos hoje que dependiam dela são desfeitos.`, ok: 'Excluir', danger: true })) return;
+    try {
+      const records = S.records.filter(x => x.date !== date);
+      const revoked = L.revocable(records, S.rewards);
+      await DB.commit({ remove: date, removeRewards: revoked });
+      S.records = records; S.rewards = S.rewards.filter(r => !revoked.includes(r.id));
+      render(); toast('Registro excluído', 'ok');
+    } catch { toast('Não foi possível excluir.', 'bad'); }
   };
 
   const openDay = date => {
@@ -572,8 +611,9 @@
       ${r ? `<span class="chip ${L.met(r) ? 'met' : 'low'}">${L.met(r) ? 'Meta atingida' : 'Abaixo da meta'}</span>
         ${row('Horas dormidas', L.fmtDur(r.minutes))}${row('Meta diária', L.fmtDur(r.goal))}${bar(r.minutes / r.goal)}
         ${r.nap ? row('Soneca incluída', L.fmtDur(r.nap)) : ''}${r.quality ? row('Qualidade', QUALITY[r.quality - 1]) : ''}${r.bed ? row('Foi dormir', r.bed) : ''}${r.wake ? row('Acordou', r.wake) : ''}
-        <button class="btn primary block" data-act="edit" data-v="${date}">${icon('edit')} Editar registro</button>`
-        : `<span class="chip">Sem registro</span>${row('Meta diária', L.fmtDur(S.settings.goal))}<button class="btn primary block" data-act="edit-new" data-v="${date}">${icon('plus')} Registrar esta noite</button>`}`);
+        ${date === L.today() ? `<button class="btn primary block" data-act="edit" data-v="${date}">${icon('edit')} Editar registro</button>`
+          : `<p class="note">Só o registro de hoje pode ser editado.</p><button class="btn danger block" data-act="delete-day" data-v="${date}">${icon('trash')} Excluir registro</button>`}`
+        : `<span class="chip">Sem registro</span>${row('Meta diária', L.fmtDur(S.settings.goal))}${date === L.today() ? `<button class="btn primary block" data-act="edit-new" data-v="${date}">${icon('plus')} Registrar esta noite</button>` : '<p class="note">Só dá para registrar a noite no próprio dia.</p>'}`}`);
   };
 
   /* ---------- compartilhamento ---------- */
@@ -626,9 +666,9 @@
   };
 
   /* ---------- backup ---------- */
-  const exportData = async () => {
-    const data = { app: 'NOX', version: 1, exportedAt: new Date().toISOString(), settings: S.settings, records: [...S.records].sort((a, b) => a.date.localeCompare(b.date)), rewards: S.rewards };
-    const ok = await download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `nox-backup-${L.today()}.json`, `Backup com ${plural(S.records.length, 'noite', 'noites')} gerado`);
+  const exportData = async (auto = false) => {
+    const data = { app: 'NOX', version: 1, exportedAt: new Date().toISOString(), settings: S.settings, friends: S.friends, records: [...S.records].sort((a, b) => a.date.localeCompare(b.date)), rewards: S.rewards };
+    const ok = await download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `nox-backup-${L.today()}.json`, auto ? 'Backup automático salvo na pasta Downloads' : `Backup com ${plural(S.records.length, 'noite', 'noites')} gerado`);
     if (ok && await saveSettings({ lastBackup: L.today() })) render();
   };
   const importFile = async file => {
@@ -639,9 +679,85 @@
       const rewards = data.rewards.concat(L.evaluate(data.records, data.rewards));
       const settings = { ...data.settings, onboarded: true };
       await DB.commit({ replace: true, put: data.records, rewards, settings });
-      Object.assign(S, { records: data.records, rewards, settings });
+      await DB.setMeta('friends', data.friends);
+      Object.assign(S, { records: data.records, rewards, settings, friends: data.friends });
       applyTheme(); render(); toast('Backup restaurado', 'ok');
     } catch (e) { toast(e.message || 'Não foi possível importar.', 'bad'); }
+  };
+
+  /* ---------- Bolha de Sonhos ---------- */
+  const openBubble = () => {
+    const t = L.today();
+    const mine = S.records.filter(r => r.tm).map(r => [r.date, r.tm, r.goal]);
+    const people = [{ id: 'me', name: S.settings.name || 'Você', nights: mine }, ...S.friends]
+      .map(p => ({ ...p, w: L.weekStats(p.nights, t) })).sort((a, b) => b.w.met - a.w.met || b.w.count - a.w.count);
+    openSheet(`<h2>Bolha de Sonhos</h2><p class="muted">Últimos 7 dias. Só contam noites medidas com o <b>Vou dormir</b>. Bolhas maiores têm mais noites na meta.</p>
+      <div class="dreams">${people.map((p, i) => `<div class="dream ${p.id === 'me' ? 'me' : ''}" style="--s:${96 + p.w.met * 9}px;--i:${i}"><b>${esc(p.name)}</b><span>${p.w.avg ? L.fmtDur(p.w.avg) : '—'}</span><small>${p.w.count ? `${p.w.met}/${p.w.count} na meta` : 'sem noites'}</small></div>`).join('')}</div>
+      ${S.friends.map(f => `<div class="row between line"><div class="grow"><b>${esc(f.name)}</b><br><small class="muted">Atualizado em ${fmtDate(f.at, { day: 'numeric', month: 'short' })}</small></div><button class="icon-btn" data-act="friend-remove" data-v="${f.id}" aria-label="Remover ${esc(f.name)}">${icon('trash')}</button></div>`).join('')}
+      <button class="btn primary block" data-act="invite">${icon('share')} Convidar amigo</button>
+      <button class="btn ghost block" data-act="paste-invite">Colar convite recebido</button>
+      <p class="note">Não há servidor: os números de um amigo mudam quando ele envia um convite novo. O convite leva seu nome e suas noites medidas dos últimos 14 dias; envie só para quem você quiser.</p>`);
+  };
+
+  const openInvite = () => {
+    const el = openSheet(`<h2>Convidar amigo</h2><p class="muted">Envie o link. A pessoa toca nele, adiciona você e manda o convite dela de volta.</p>
+      <label>Seu nome na bolha<input id="inv-name" maxlength="30" value="${esc(S.settings.name)}" placeholder="Seu nome"></label>
+      <button class="btn primary block" id="send">${icon('share')} Enviar convite</button><button class="btn ghost block" id="copy-inv">${icon('copy')} Copiar link</button>`);
+    const input = $('#inv-name', el);
+    const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => (b % 36).toString(36)).join('');
+    const link = () => `${location.origin}${location.pathname}#amigo=${L.makeInvite({ ...S.settings, name: input.value.trim().slice(0, 30), friendId: S.settings.friendId || draftId }, S.records)}`;
+    const draftId = S.settings.friendId || newId();
+    const keep = () => saveSettings({ name: input.value, friendId: draftId });
+    $('#send', el).onclick = async () => {
+      const url = link(); keep();
+      if (!navigator.share) return copy(url);
+      try { await navigator.share({ title: 'Bolha de Sonhos', text: 'Entra na minha Bolha de Sonhos no NOX 🌙', url }); }
+      catch (e) { if (e.name !== 'AbortError') copy(url); }
+    };
+    $('#copy-inv', el).onclick = () => { copy(link()); keep(); };
+  };
+
+  const pasteInvite = () => {
+    const el = openSheet(`<h2>Colar convite</h2><label>Link que você recebeu<input id="inv-code" autocomplete="off" placeholder="https://...#amigo=..."></label><p class="error" role="alert"></p><button class="btn primary block" id="add">Adicionar à bolha</button>`);
+    $('#add', el).onclick = async () => {
+      try { L.parseInvite($('#inv-code', el).value); } catch (e) { $('.error', el).textContent = e.message; return; }
+      const v = $('#inv-code', el).value;
+      closeSheet(); await settle(); acceptInvite(v);
+    };
+  };
+
+  const saveFriends = async list => {
+    try { await DB.setMeta('friends', list); S.friends = list; render(); return true; }
+    catch { toast('Não foi possível salvar a bolha.', 'bad'); return false; }
+  };
+
+  const acceptInvite = async code => {
+    let f;
+    try { f = L.parseInvite(code); } catch (e) { return toast(e.message, 'bad'); }
+    if (f.id === S.settings.friendId) return toast('Esse é o seu próprio convite.', 'bad');
+    const known = S.friends.some(x => x.id === f.id);
+    if (!await ask({ title: known ? 'Atualizar amigo?' : 'Adicionar à sua bolha?', text: `${esc(f.name)} compartilhou ${plural(f.nights.length, 'noite medida', 'noites medidas')}.`, ok: known ? 'Atualizar' : 'Adicionar' })) return;
+    await settle();
+    if (await saveFriends(S.friends.filter(x => x.id !== f.id).concat(f).slice(-50))) openBubble();
+  };
+
+  let pendingInvite = '';
+  const readInvite = () => {
+    const m = location.hash.match(/^#amigo=([\w-]+)$/);
+    if (!m) return false;
+    pendingInvite = m[1];
+    remember(location.pathname + location.search);
+    return true;
+  };
+  window.addEventListener('hashchange', () => { if (readInvite()) attend(); });
+
+  /* ---------- lembrete diário ---------- */
+  const registerReminder = async reg => {
+    try {
+      if (!reg.periodicSync) return;
+      if (S.settings.reminders && Notification.permission === 'granted') await reg.periodicSync.register('nox-reminder', { minInterval: 12 * 3600e3 });
+      else await reg.periodicSync.unregister('nox-reminder');
+    } catch { /* o navegador só permite no app instalado */ }
   };
 
   /* ---------- configurações ---------- */
@@ -709,6 +825,17 @@
     },
     'party-next': () => { celebrations.shift(); nextCelebration(); },
     'sleep-start': startSleep,
+    bubble: () => openBubble(), invite: () => openInvite(), 'paste-invite': () => pasteInvite(),
+    'friend-remove': async v => { if (await saveFriends(S.friends.filter(f => f.id !== v))) openBubble(); },
+    'delete-day': v => removeRecord(v),
+    reminders: async v => {
+      if (v === 'on' && canNotify() && Notification.permission === 'default') await Notification.requestPermission();
+      if (!await saveSettings({ reminders: v === 'on' })) return;
+      render();
+      if (canNotify()) navigator.serviceWorker.ready.then(registerReminder);
+    },
+    sounds: async v => { if (await saveSettings({ sounds: v === 'on' })) render(); },
+    autobackup: async v => { if (await saveSettings({ autoBackup: v === 'on' })) render(); },
     'sleep-wake': async () => { if (await changeSession(s => L.sessionAction(s, 'wake'))) reviewSleep(); },
     'sleep-pause': async () => { closeSheet(); await changeSession(s => L.sessionAction(s, 'pause')); },
     'sleep-peek': async () => { closeSheet(); await changeSession(s => s && { ...s, snooze: Date.now() + 3600e3 }); },
@@ -722,7 +849,7 @@
     'sleep-cancel': async () => {
       if (await ask({ title: 'Descartar o cronômetro?', text: 'Nada será registrado.', ok: 'Descartar', cancel: 'Voltar', danger: true }) && await changeSession(() => null)) toast('Cronômetro descartado', 'ok');
     },
-    notify: async () => { await Notification.requestPermission(); render(); syncNotice(); },
+    notify: async () => { await Notification.requestPermission(); render(); syncNotice(); navigator.serviceWorker.ready.then(registerReminder); },
     latency: async v => { if (await saveSettings({ latency: S.settings.latency + Number(v) })) render(); },
     theme: async v => { if (await saveSettings({ theme: v })) render(); },
     goal: async v => {
@@ -734,16 +861,16 @@
     next: () => { step++; onboard(); }, skip: () => { step = 3; onboard(); },
     finish: async () => {
       if (!await saveSettings({ ...setup, name: $('#set-name').value, onboarded: true })) return;
-      $('#intro').hidden = true; render(true);
+      $('#intro').hidden = true; render(true); setTimeout(attend, 300);
       navigator.storage?.persist?.().catch(() => {});
     },
-    export: exportData, import: () => $('#file').click(),
+    export: () => exportData(), import: () => $('#file').click(),
     install: async () => { const e = S.installEvt; if (!e) return; S.installEvt = null; e.prompt(); await e.userChoice; render(); },
     wipe: async () => {
       if (!await ask({ title: 'Apagar todos os dados?', text: 'Registros, XP, medalhas e configurações serão removidos deste aparelho. Não há como desfazer. Exporte um backup antes, se quiser guardá-los.', ok: 'Apagar tudo', danger: true, word: 'APAGAR' })) return;
       try {
         await DB.wipe();
-        Object.assign(S, { records: [], rewards: [], settings: L.cleanSettings(), session: null, tab: 'inicio' });
+        Object.assign(S, { records: [], rewards: [], settings: L.cleanSettings(), session: null, friends: [], tab: 'inicio' });
         syncNotice();
         step = 0; setup = { name: '', age: 'a', goal: 480 };
         applyTheme(); render(); onboard();
@@ -777,7 +904,8 @@
   const refresh = async () => {
     try {
       const data = await DB.load();
-      S.records = data.records; S.rewards = data.rewards; S.session = data.session;
+      S.records = data.records; S.rewards = data.rewards; S.friends = data.friends; S.session = L.expire(data.session);
+      if (S.session !== data.session) await DB.updateSession(s => L.expire(s));
       if (S.day !== L.today()) { S.day = L.today(); S.calMonth = S.progMonth = L.monthKey(S.day); }
       render();
     } catch { /* mantém o que está na tela */ }
@@ -792,9 +920,15 @@
     await refresh();
     if (S.session?.status === 'ended') reviewSleep();
   });
-  setInterval(() => {
-    const t = $('#timer');
-    if (t && S.session && !document.hidden) t.textContent = timerText(L.sessionSummary(S.session).elapsed);
+  let noticeMinute = -1;
+  setInterval(async () => {
+    const s = S.session;
+    if (!s || s.status === 'ended') return;
+    if (L.expire(s) !== s) { if (await changeSession(x => x)) attend(); return; }
+    const sum = L.sessionSummary(s), t = $('#timer');
+    if (t && !document.hidden) t.textContent = timerText(sum.elapsed);
+    // enquanto o app está vivo, o tempo da notificação é atualizado a cada minuto
+    if (sum.total !== noticeMinute) { noticeMinute = sum.total; syncNotice(); }
   }, 1000);
   setInterval(() => { if (S.day !== L.today() && $('#sheet').hidden) refresh(); }, 60000);
 
@@ -816,6 +950,7 @@
     navigator.serviceWorker.addEventListener('controllerchange', () => { if (updating) location.reload(); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
     syncNotice();
+    navigator.serviceWorker.ready.then(registerReminder);
   };
 
   const start = async () => {
@@ -823,7 +958,8 @@
     try {
       await DB.open();
       const data = await DB.load();
-      S.records = data.records; S.rewards = data.rewards; S.settings = L.cleanSettings(data.settings); S.session = data.session;
+      S.records = data.records; S.rewards = data.rewards; S.settings = L.cleanSettings(data.settings); S.friends = data.friends; S.session = L.expire(data.session);
+      if (S.session !== data.session) await DB.updateSession(s => L.expire(s));
       // completa recompensas que faltem (sem duplicar)
       const fresh = L.evaluate(S.records, S.rewards);
       if (fresh.length) { await DB.commit({ rewards: fresh }); S.rewards = S.rewards.concat(fresh); }
@@ -832,6 +968,7 @@
       $('#nav').hidden = true; $('#splash').remove();
       return;
     }
+    readInvite();
     const hash = location.hash.slice(1);
     if (TABS.some(t => t[0] === hash)) S.tab = hash;
     try { history.replaceState(null, '', location.href); } catch { /* sem histórico */ }

@@ -240,3 +240,39 @@ fieldset{border:0}
 
 @media (max-width:350px){.stats{gap:8px}.grid{gap:4px}.medals{grid-template-columns:1fr}.quality small{display:none}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.confetti{display:none}}
+
+/* gráfico de linha */
+.chart .ln{fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;animation:draw 1.4s ease-in-out backwards}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.chart .area{animation:fade .8s .8s backwards}
+.chart .dot{stroke:var(--solid);stroke-width:1.5;transform-box:fill-box;transform-origin:center;animation:pop .35s backwards}
+
+/* comemoração */
+.flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 40%,var(--a),var(--b) 35%,transparent 70%);opacity:0;animation:flash .8s ease-out}
+@keyframes flash{15%{opacity:.75}to{opacity:0}}
+.party-box{overflow:hidden;border-color:var(--b);margin:auto}
+.stage{position:relative;width:190px;height:190px;display:grid;place-items:center}
+.stage>.medal,.stage>.lvl-badge{z-index:2;margin:0}
+.rays{position:absolute;inset:-55px;border-radius:50%;background:repeating-conic-gradient(var(--a) 0 7deg,transparent 7deg 24deg);-webkit-mask:radial-gradient(circle,#000 20%,transparent 68%);mask:radial-gradient(circle,#000 20%,transparent 68%);opacity:.45;animation:turn 14s linear infinite}
+@keyframes turn{to{transform:rotate(360deg)}}
+.wave{position:absolute;width:130px;height:130px;border-radius:50%;border:3px solid var(--a);opacity:0;animation:wave 1.2s .35s ease-out}
+.wave.w2{border-color:var(--b);animation-delay:.65s}
+@keyframes wave{0%{transform:scale(.6);opacity:1}100%{transform:scale(2.3);opacity:0}}
+.spark{position:absolute;left:50%;top:50%;width:6px;height:16px;margin:-8px -3px;border-radius:4px;background:var(--c);opacity:0;animation:spark .9s .4s ease-out}
+@keyframes spark{0%{opacity:1;transform:rotate(var(--r)) translateY(-30px)}100%{opacity:0;transform:rotate(var(--r)) translateY(calc(var(--l) * -1)) scaleY(.3)}}
+.xp-pop{font-size:2rem;font-weight:800;color:#fde047;animation:beat .5s 1.3s}
+@keyframes beat{50%{transform:scale(1.25)}}
+.teaser{width:100%;display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:16px;background:var(--soft);color:var(--muted)}
+
+/* Bolha de Sonhos */
+.bubble-btn{display:flex;align-items:center;gap:14px;text-align:left;padding:14px 18px;border-radius:99px;border:1px solid rgba(167,139,250,.45);background:linear-gradient(110deg,rgba(34,211,238,.16),rgba(168,85,247,.22)),var(--card)}
+.bubble-btn small{display:block;color:var(--muted);font-size:.8rem}
+.orbs{position:relative;width:46px;height:40px;flex:none}
+.orbs i{position:absolute;border-radius:50%;background:radial-gradient(circle at 30% 28%,#fff,#67e8f9 25%,#7c5cf6 75%)}
+.orbs i:nth-child(1){width:30px;height:30px;left:0;top:8px}.orbs i:nth-child(2){width:20px;height:20px;left:25px;top:0}.orbs i:nth-child(3){width:13px;height:13px;left:31px;top:25px}
+.dreams{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:12px;padding:8px 0}
+.dream{width:var(--s);height:var(--s);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:8px;color:#fff;line-height:1.25;background:radial-gradient(circle at 30% 22%,rgba(255,255,255,.55),transparent 28%),radial-gradient(circle at 50% 60%,#4c3bb8,#1b1d52);border:1px solid rgba(165,243,252,.5);animation:bob 3.5s calc(var(--i) * .4s) ease-in-out 3}
+.dream.me{background:radial-gradient(circle at 30% 22%,rgba(255,255,255,.55),transparent 28%),radial-gradient(circle at 50% 60%,#0e7490,#312e81)}
+.dream b{font-size:.82rem;max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dream span{font-weight:700}.dream small{font-size:.68rem;opacity:.85}
+@keyframes bob{50%{transform:translateY(-7px)}}
+@media (prefers-reduced-motion:reduce){.flash,.spark,.wave,.rays{display:none}}

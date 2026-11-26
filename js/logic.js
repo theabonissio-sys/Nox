@@ -66,6 +66,31 @@
     return Math.max(0, ...Object.values(c));
   };
 
+  const MAX_DAY = 840;     // 14h por dia, somando sonecas
+  const TIMER_MAX = 600;   // o cronômetro desliga sozinho em 10h
+
+  const streakOf = (rs, pred) => longestStreak(rs.filter(pred).map(r => r.date));
+  const goodWeekends = rs => {
+    const ok = new Set(rs.filter(met).map(r => r.date));
+    return [...ok].filter(d => parse(d).getDay() === 6 && ok.has(addDays(d, 1))).length;
+  };
+  /* maior sequência de noites seguidas indo dormir com até 30 min de diferença */
+  const steadyRun = rs => {
+    const list = rs.filter(r => r.bed).sort((a, b) => a.date.localeCompare(b.date));
+    let best = 0;
+    list.forEach((first, i) => {
+      let min = fromNoon(first.bed), max = min, n = 1;
+      for (let j = i + 1; j < list.length && list[j].date === addDays(list[j - 1].date, 1); j++) {
+        const t = fromNoon(list[j].bed);
+        min = Math.min(min, t); max = Math.max(max, t);
+        if (max - min > 30) break;
+        n++;
+      }
+      best = Math.max(best, n);
+    });
+    return best;
+  };
+
   const MEDALS = [
     { id: 'first', name: 'Primeira Noite', desc: 'Registrou o primeiro sono.', icon: 'moon', xp: 25, target: 1, count: rs => rs.length, colors: ['#4f7cff', '#8b5cf6'] },
     { id: 'week', name: 'Primeira Semana', desc: 'Completou 7 registros.', icon: 'calendar', xp: 50, target: 7, count: rs => rs.length, colors: ['#22d3ee', '#4f7cff'] },
@@ -75,6 +100,14 @@
     { id: 'detail', name: 'Olhar Atento', desc: 'Avaliou a qualidade de 10 noites.', icon: 'eye', xp: 40, target: 10, count: rs => rs.filter(r => r.quality).length, colors: ['#8b5cf6', '#4f7cff'] },
     { id: 'explorer', name: 'Explorador', desc: 'Registrou 30 noites.', icon: 'compass', xp: 150, target: 30, count: rs => rs.length, colors: ['#c084fc', '#6366f1'] },
     { id: 'hundred', name: 'Centenário', desc: 'Registrou 100 noites.', icon: 'crown', xp: 300, target: 100, count: rs => rs.length, colors: ['#67e8f9', '#c084fc'] },
+    { id: 'moon3', name: 'Trilogia da Lua', desc: 'Alcançou a meta 3 noites seguidas.', icon: 'sparkle', xp: 40, target: 3, count: rs => streakOf(rs, met), colors: ['#f9a8d4', '#8b5cf6'] },
+    { id: 'guardian', name: 'Guardião dos Sonhos', desc: 'Mediu 7 noites com o modo Vou dormir.', icon: 'shield', xp: 80, target: 7, count: rs => rs.filter(r => r.tm).length, colors: ['#34d399', '#22d3ee'] },
+    { id: 'early', name: 'Coruja Aposentada', desc: 'Foi dormir antes das 23h em 5 noites.', icon: 'moon', xp: 70, target: 5, count: rs => rs.filter(r => r.bed >= '18:00' && r.bed < '23:00').length, colors: ['#fbbf24', '#f472b6'] },
+    { id: 'swiss', name: 'Relógio Suíço', desc: '5 noites seguidas indo dormir quase no mesmo horário.', icon: 'clock', xp: 90, target: 5, count: steadyRun, colors: ['#f87171', '#fbbf24'] },
+    { id: 'weekend', name: 'Fim de Semana Zen', desc: 'Alcançou a meta no sábado e no domingo.', icon: 'sun', xp: 60, target: 1, count: goodWeekends, colors: ['#fb923c', '#facc15'] },
+    { id: 'fresh', name: 'Acordei Renovado', desc: 'Avaliou 5 noites como ótimas.', icon: 'star', xp: 50, target: 5, count: rs => rs.filter(r => r.quality === 5).length, colors: ['#a3e635', '#2dd4bf'] },
+    { id: 'perfect', name: 'Semana Lendária', desc: 'Alcançou a meta 7 noites seguidas.', icon: 'trophy', xp: 120, target: 7, count: rs => streakOf(rs, met), colors: ['#fde047', '#f97316'] },
+    { id: 'galaxy', name: 'Constelação', desc: 'Registrou 30 dias seguidos.', icon: 'bolt', xp: 200, target: 30, count: rs => streakOf(rs, () => true), colors: ['#60a5fa', '#e879f9'] },
   ];
 
   const LEVELS = [
@@ -134,9 +167,16 @@
     return rewards.filter(r => r.date === now && !ok.has(r.id)).map(r => r.id);
   };
 
+  /* Regras para o que a pessoa digita: limite humano e só o dia certo. */
+  const checkEntry = (rec, now = today(), timerDate = null) => {
+    if (rec.minutes > MAX_DAY) throw new Error('O máximo é de 14 horas de sono em um dia.');
+    if (rec.date !== now && rec.date !== timerDate) throw new Error('Só dá para registrar a noite no próprio dia.');
+    return rec;
+  };
+
   const addNap = (rec, minutes) => {
     if (!Number.isInteger(minutes) || minutes <= 0) throw new Error('Informe quanto durou a soneca.');
-    if (rec.minutes + minutes > 1440) throw new Error('A soma do dia não pode passar de 24 horas.');
+    if (rec.minutes + minutes > MAX_DAY) throw new Error('A soma do dia não pode passar de 14 horas.');
     return { ...rec, minutes: rec.minutes + minutes, nap: (rec.nap || 0) + minutes };
   };
 
@@ -186,6 +226,7 @@
       quality: Number.isInteger(r.quality) && r.quality >= 1 && r.quality <= 5 ? r.quality : 0,
       ...(Number.isInteger(r.nap) && r.nap > 0 ? { nap: Math.min(r.nap, r.minutes) } : {}),
       ...(r.late ? { late: true } : {}),
+      ...(Number.isInteger(r.tm) && r.tm > 0 ? { tm: Math.min(r.tm, TIMER_MAX) } : {}),
     };
   };
 
@@ -195,6 +236,7 @@
     return (m(wake) - m(bed) + 1440) % 1440 || null;
   };
 
+  const idRe = /^[a-z0-9]{8,24}$/;
   const cleanSettings = s => {
     s = s || {};
     const a = age(s.age).id, lim = goalLimits(a);
@@ -204,57 +246,114 @@
       theme: s.theme === 'light' ? 'light' : 'dark', onboarded: !!s.onboarded,
       latency: Number.isInteger(s.latency) ? Math.min(60, Math.max(0, s.latency)) : 15,
       lastBackup: validDate(s.lastBackup) ? s.lastBackup : '', backupSnooze: validDate(s.backupSnooze) ? s.backupSnooze : '',
+      reminders: s.reminders !== false, autoBackup: s.autoBackup !== false, sounds: s.sounds !== false,
+      friendId: idRe.test(s.friendId) ? s.friendId : '',
     };
   };
 
   /* ---------- modo "Vou dormir" ---------- */
   const clock = ms => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
   const startSession = (latency, now = Date.now()) => ({ start: now, latency, status: 'sleeping', pauses: [] });
+  /* Passou de 10h: o cronômetro é encerrado no limite. */
+  const closePauses = (s, at) => s.pauses.filter(p => p.from < at).map(p => p.to && p.to <= at ? p : { ...p, to: at });
+  const expire = (s, now = Date.now()) => {
+    if (!s || s.status === 'ended' || now - s.start < TIMER_MAX * 60000) return s;
+    const end = s.start + TIMER_MAX * 60000;
+    return { ...s, status: 'ended', end, auto: true, wasAwake: s.status === 'awake', pauses: closePauses(s, end) };
+  };
   /* Transições inválidas (ex.: botão antigo de uma notificação) não mudam nada. */
   const sessionAction = (s, action, now = Date.now()) => {
     if (!s) return s;
-    const closed = () => s.pauses.map(p => p.to ? p : { ...p, to: now });
+    const x = expire(s, now);
+    if (x !== s) return x;
     if (action === 'pause' && s.status === 'sleeping') return { ...s, status: 'awake', pauses: s.pauses.concat({ from: now, to: null }) };
-    if (action === 'resume' && s.status === 'awake') return { ...s, status: 'sleeping', pauses: closed() };
-    if (action === 'wake' && s.status !== 'ended') return { ...s, status: 'ended', end: now, wasAwake: s.status === 'awake', pauses: closed() };
-    if (action === 'undo' && s.status === 'ended') {
-      const { end, wasAwake, ...rest } = s;
+    if (action === 'resume' && s.status === 'awake') return { ...s, status: 'sleeping', pauses: closePauses(s, now) };
+    if (action === 'wake' && s.status !== 'ended') return { ...s, status: 'ended', end: now, wasAwake: s.status === 'awake', pauses: closePauses(s, now) };
+    if (action === 'undo' && s.status === 'ended' && now - s.start < TIMER_MAX * 60000) {
+      const { end, wasAwake, auto, ...rest } = s;
       return { ...rest, status: wasAwake ? 'awake' : 'sleeping', pauses: s.pauses.map((p, i) => wasAwake && i === s.pauses.length - 1 ? { ...p, to: null } : p) };
     }
     return s;
   };
   const sessionSummary = (s, now = Date.now()) => {
-    const end = s.end || now;
+    const end = s.end || Math.min(now, s.start + TIMER_MAX * 60000);
     const elapsed = Math.max(0, end - s.start);
     const awake = Math.round(s.pauses.reduce((t, p) => t + Math.max(0, (p.to || end) - p.from), 0) / 60000);
     const total = Math.round(elapsed / 60000);
+    const minutes = Math.max(0, total - awake - s.latency);
     return {
-      elapsed, total, awake, latency: s.latency, minutes: Math.max(0, total - awake - s.latency),
+      elapsed, total, awake, latency: s.latency, minutes, auto: !!s.auto,
+      tm: s.auto ? 0 : minutes, // noite esquecida no limite não conta na Bolha de Sonhos
       date: iso(new Date(end)), bed: clock(s.start), wake: clock(end),
     };
   };
-  const sessionNotice = s => {
+  const sessionNotice = (s, now = Date.now()) => {
     const base = { tag: 'nox-sleep', icon: 'icons/icon-192.png', badge: 'icons/badge.png', silent: true };
     if (s.status === 'ended') {
       return {
-        title: 'Cronômetro parado ☀️',
+        title: s.auto ? 'Cronômetro desligado após 10h' : 'Cronômetro parado ☀️',
         options: {
           ...base, body: `${fmtDur(sessionSummary(s).minutes)} de sono. Toque para conferir e salvar.`, timestamp: s.end,
-          actions: [{ action: 'review', title: 'Conferir e salvar' }, { action: 'undo', title: 'Continuar' }],
+          actions: s.auto ? [{ action: 'review', title: 'Conferir e salvar' }]
+            : [{ action: 'review', title: 'Conferir e salvar' }, { action: 'undo', title: 'Continuar' }],
         },
       };
     }
     const awake = s.status === 'awake';
     const since = awake ? s.pauses[s.pauses.length - 1].from : s.start;
+    const passed = Math.max(0, Math.floor((now - s.start) / 60000));
     return {
-      title: awake ? 'Acordado no meio da noite' : 'Cronômetro de sono ligado 🌙',
+      title: passed < 1 ? (awake ? 'Acordado no meio da noite' : 'Cronômetro de sono ligado 🌙') : `${awake ? '⏸️' : '🌙'} ${passed < 60 ? `${passed} min` : fmtDur(passed)} no cronômetro`,
       options: {
-        body: awake ? `Pausado às ${clock(since)}. Toque quando voltar a dormir.` : `Começou às ${clock(s.start)}. Toque em Acordei quando levantar.`,
         ...base, timestamp: since, requireInteraction: true,
+        body: `${awake ? `Pausado às ${clock(since)}` : `Começou às ${clock(s.start)}`} · visto às ${clock(now)}. Toque para atualizar o tempo.`,
         actions: awake ? [{ action: 'resume', title: 'Voltei a dormir' }, { action: 'wake', title: 'Levantei' }]
           : [{ action: 'wake', title: 'Acordei' }, { action: 'pause', title: 'Acordei de noite' }],
       },
     };
+  };
+
+  /* ---------- lembretes diários ---------- */
+  const REMINDERS = {
+    morning: ['Bom dia! Como foi sua noite? Anote no NOX.', 'Sua noite de hoje ainda pode virar XP. ☀️', 'Antes que o dia corra: registre seu sono.'],
+    evening: ['Seu travesseiro mandou lembrar: hora de desacelerar. 🌙', 'Que tal largar a tela um pouco antes de deitar?', 'Descansar também é conquista. Boa noite!',
+      'Amanhã agradece o sono de hoje.', 'Prepare o quarto: luz baixa, corpo tranquilo.', 'Vai deitar? Toque em Vou dormir no NOX.', 'Seu corpo trabalha enquanto você dorme. Dê esse tempo a ele.'],
+  };
+  const reminderFor = (hour, n) => {
+    if (hour < 7 || hour >= 24) return null;
+    const list = hour >= 18 ? REMINDERS.evening : hour < 12 ? REMINDERS.morning : REMINDERS.evening;
+    return list[n % list.length];
+  };
+
+  /* ---------- Bolha de Sonhos: troca de convites, sem servidor ---------- */
+  const cleanFriend = (f, now = today()) => {
+    if (!f || !idRe.test(f.id) || !Array.isArray(f.nights)) return null;
+    const nights = new Map();
+    f.nights.slice(0, 14).forEach(n => {
+      if (Array.isArray(n) && validDate(n[0]) && n[0] <= addDays(now, 1) && Number.isInteger(n[1]) && n[1] > 0 && n[1] <= TIMER_MAX && Number.isInteger(n[2]) && n[2] >= 240 && n[2] <= 900) nights.set(n[0], [n[0], n[1], n[2]]);
+    });
+    return { id: f.id, name: String(f.name || '').trim().slice(0, 30) || 'Amigo', nights: [...nights.values()], at: validDate(f.at) ? f.at : now };
+  };
+  const makeInvite = (settings, records, now = today()) => {
+    const nights = records.filter(r => r.tm && r.date > addDays(now, -14) && r.date <= now).map(r => [r.date, r.tm, r.goal]);
+    const json = JSON.stringify({ v: 1, id: settings.friendId, name: settings.name, nights, at: now });
+    return btoa(String.fromCharCode(...new TextEncoder().encode(json))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  };
+  const parseInvite = (text, now = today()) => {
+    try {
+      const raw = String(text).trim();
+      const code = (raw.match(/amigo=([\w-]+)/) || [null, raw])[1];
+      if (!/^[\w-]{10,4000}$/.test(code)) throw 0;
+      const bin = atob(code.replace(/-/g, '+').replace(/_/g, '/'));
+      const d = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+      const f = d.v === 1 && cleanFriend(d, now);
+      if (!f) throw 0;
+      return f;
+    } catch { throw new Error('Esse convite não é válido. Peça para a pessoa enviar de novo.'); }
+  };
+  const weekStats = (nights, now = today()) => {
+    const w = nights.filter(n => n[0] > addDays(now, -7) && n[0] <= now);
+    return { count: w.length, met: w.filter(n => n[1] >= n[2]).length, avg: w.length ? w.reduce((s, n) => s + n[1], 0) / w.length : null };
   };
 
   /* Lê um arquivo de backup. Nomes e XP das recompensas vêm das regras, nunca do arquivo. */
@@ -282,14 +381,15 @@
         if (m && okKey) rewards.set(r.id, { id: r.id, kind: 'mission', type: a, ref: m.id, period: b, name: m.name, xp: m.xp, date });
       }
     });
-    return { records: [...records.values()], rewards: [...rewards.values()], settings: cleanSettings(d.settings) };
+    const friends = (Array.isArray(d.friends) ? d.friends : []).slice(0, 50).map(f => cleanFriend(f, now)).filter(Boolean);
+    return { records: [...records.values()], rewards: [...rewards.values()], settings: cleanSettings(d.settings), friends };
   };
 
   const api = {
     iso, parse, validDate, addDays, today, weekStart, weekDays, monthKey, daysInMonth, monthDays, fmtDur,
     AGES, age, goalLimits, met, hasDetails, longestStreak, MISSIONS, MEDALS, LEVELS, levelInfo,
     missionsFor, evaluate, totalXp, stats, cleanRecord, cleanSettings, between, parseBackup,
-    isLate, eligible, medalProgress, revocable, addNap, timing, toClock, clock, startSession, sessionAction, sessionSummary, sessionNotice,
+    MAX_DAY, TIMER_MAX, checkEntry, expire, reminderFor, makeInvite, parseInvite, cleanFriend, weekStats, isLate, eligible, medalProgress, revocable, addNap, timing, toClock, clock, startSession, sessionAction, sessionSummary, sessionNotice,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Logic = api;
