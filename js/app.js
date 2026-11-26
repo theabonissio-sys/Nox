@@ -131,8 +131,7 @@
       ${timingCard(days)}
       <h2>Estatísticas gerais</h2>
       ${g.count ? `<section class="stats">${stat('Média de sono', L.fmtDur(g.avg))}${stat('Maior duração', L.fmtDur(g.max.minutes), fmtDate(g.max.date, { day: '2-digit', month: 'short' }))}
-        ${stat('Total dormido', L.fmtDur(g.total))}${stat('Noites registradas', g.count)}${stat('Dias na meta', `${g.metPct}%`, `${g.metCount} de ${plural(g.count, 'noite', 'noites')}`)}${stat('Maior sequência', plural(g.streak, 'dia', 'dias'))}</section>
-        ${g.count < 7 ? '<p class="note">Com poucos registros, estes números ainda mudam bastante. Depois de 7 noites o retrato fica mais fiel.</p>' : ''}`
+        ${stat('Total dormido', L.fmtDur(g.total))}${stat('Noites registradas', g.count)}${stat('Dias na meta', `${g.metPct}%`, `${g.metCount} de ${plural(g.count, 'noite', 'noites')}`)}${stat('Maior sequência', plural(g.streak, 'dia', 'dias'))}</section>`
         : empty('chart', 'Ainda sem estatísticas', 'Elas aparecem assim que você registrar sua primeira noite.', false)}`;
     },
 
@@ -148,7 +147,7 @@
             return `<article class="card mission ${done ? 'done' : ''}"><div class="row between"><h3>${m.name}</h3><span class="xp">+${m.xp} XP</span></div>
               <p class="muted">${m.desc}</p>${bar(p / m.target)}<div class="row between"><span class="state">${done ? `${icon('check')} Concluída` : 'Em andamento'}</span><span class="muted">${p}/${m.target}</span></div>
               ${done ? `<button class="btn ghost small" data-act="share-mission" data-v="${m.rewardId}">${icon('share')} Compartilhar</button>` : ''}</article>`;
-          }).join('')}`).join('') + '<p class="note">Dormir além da meta não rende pontos extras, e noites abaixo dela nunca tiram XP. Noites anotadas com mais de 3 dias de atraso não valem XP.</p>';
+          }).join('')}`).join('');
       } else if (S.achTab === 'medalhas') {
         const n = L.MEDALS.filter(m => reward(`a:${m.id}`)).length;
         body = `<p class="muted center">${n} de ${L.MEDALS.length} medalhas desbloqueadas</p><div class="medals">${L.MEDALS.map(m => {
@@ -176,28 +175,24 @@
       <section class="card form"><h3>Perfil e meta</h3>
         <label>Como quer ser chamado?<input id="set-name" maxlength="30" value="${esc(s.name)}" placeholder="Seu nome (opcional)" autocomplete="off"></label>
         ${ageField(s.age)}${goalField(s.goal, s.age)}
-        <p class="note">A nova meta vale para os próximos registros. Noites já salvas mantêm a meta da época.</p></section>
       <section class="card form"><h3>Modo Vou dormir</h3>
         <div class="goal"><span>Tempo para pegar no sono</span><div class="stepper">
           <button type="button" class="icon-btn" data-act="latency" data-v="-5" aria-label="Diminuir 5 minutos">${icon('minus')}</button><b>${s.latency} min</b>
           <button type="button" class="icon-btn" data-act="latency" data-v="5" aria-label="Aumentar 5 minutos">${icon('plus')}</button></div><small>Esse tempo é descontado do cronômetro.</small></div>
         ${notifyState()}</section>
       <section class="card"><h3>Lembrete diário</h3>${seg('reminders', [['on', 'Ligado'], ['off', 'Desligado']], s.reminders ? 'on' : 'off')}
-        <p class="note">Uma frase por dia para lembrar de descansar. Precisa do app instalado e das notificações ativadas. O Android escolhe o horário e pode pular dias.</p></section>
       <section class="card"><h3>Sons e vibração nas conquistas</h3>${seg('sounds', [['on', 'Ligado'], ['off', 'Desligado']], s.sounds ? 'on' : 'off')}</section>
       <section class="card"><h3>Aparência</h3>${seg('theme', [['dark', 'Escuro'], ['light', 'Claro']], s.theme)}</section>
       ${S.installEvt ? `<section class="card"><h3>Instalar</h3><p class="muted">Coloque o NOX na tela inicial e use offline.</p><button class="btn primary block" data-act="install">${icon('download')} Instalar aplicativo</button></section>` : ''}
-      <section class="card"><h3>Backup</h3><p class="muted">Seus dados ficam só neste aparelho. Exporte um arquivo de vez em quando para não perdê-los.</p>
+      <section class="card"><h3>Backup</h3><p class="muted">Seus dados ficam só neste aparelho.</p>
         <p class="note">${s.lastBackup ? `Último backup: ${fmtDate(s.lastBackup)}.` : 'Nenhum backup feito ainda.'}</p>
         ${seg('autobackup', [['on', 'Automático'], ['off', 'Manual']], s.autoBackup ? 'on' : 'off')}
-        <p class="note">No automático, uma vez por semana, ao salvar uma noite, o arquivo vai para a pasta Downloads.</p>
         <button class="btn ghost block" data-act="export">${icon('download')} Exportar registros</button>
         <button class="btn ghost block" data-act="import">${icon('upload')} Importar backup</button>
         <input type="file" id="file" accept=".json,application/json" hidden></section>
-      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.7.</p>
+      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Versão 1.8.</p>
         <button class="btn ghost block" data-act="tour">${icon('sparkle')} Ver apresentação</button>
-        <p class="muted">${icon('shield')} Sem conta, sem servidor e sem rastreamento. Funciona offline depois de instalado. Dados só saem do aparelho quando você envia um convite, imagem ou backup.</p>
-        <p class="muted">As sugestões de meta seguem as faixas da National Sleep Foundation. O NOX não é um dispositivo médico; se o sono estiver preocupando você, converse com um profissional de saúde.</p></section>
+        <p class="muted">Não é um dispositivo médico.</p></section>
       <button class="btn danger block" data-act="wipe">${icon('trash')} Apagar todos os dados</button>`;
     },
   };
@@ -211,7 +206,7 @@
     if (!s) return '';
     const sum = L.sessionSummary(s);
     if (s.status === 'ended') return `<section class="card sleep">${Avatar.svg(myAvatar(), { cls: 'big live' })}<p class="eyebrow">NOITE PRONTA PARA SALVAR</p><h2>${L.fmtDur(sum.minutes)} de sono</h2><p class="muted">Das ${sum.bed} às ${sum.wake}</p>
-      <button class="btn primary block" data-act="sleep-review">Conferir e salvar</button>${s.auto ? '<p class="note">Desligado no limite de 10 horas. Confira o horário em que acordou.</p>' : '<button class="btn ghost block" data-act="sleep-undo">Continuar o cronômetro</button>'}<button class="link" data-act="sleep-cancel">Descartar</button></section>`;
+      <button class="btn primary block" data-act="sleep-review">Conferir e salvar</button>${s.auto ? '' : '<button class="btn ghost block" data-act="sleep-undo">Continuar o cronômetro</button>'}<button class="link" data-act="sleep-cancel">Descartar</button></section>`;
     const awake = s.status === 'awake';
     return `<section class="card sleep">${Avatar.svg(myAvatar(), { cls: awake ? 'big live' : 'big asleep', sleep: !awake })}<p class="eyebrow">${awake ? 'ACORDADO NO MEIO DA NOITE' : 'CRONÔMETRO DE SONO'}</p>
       <strong class="timer" id="timer" role="timer">${timerText(sum.elapsed)}</strong>
@@ -219,12 +214,11 @@
       <button class="btn primary block" data-act="sleep-wake">${awake ? 'Levantei' : 'Acordei'}</button>
       <button class="btn ghost block" data-act="${awake ? 'sleep-resume' : 'sleep-pause'}">${awake ? 'Voltei a dormir' : 'Acordei no meio da noite'}</button>
       <button class="link" data-act="sleep-cancel">Cancelar cronômetro</button>
-      ${canNotify() && Notification.permission === 'granted' ? '' : '<p class="note">Sem notificação nesta tela. O cronômetro continua contando; abra o NOX quando acordar.</p>'}</section>`;
+    </section>`;
   };
 
   const notifyState = () => {
-    if (!canNotify()) return '<p class="note">As notificações funcionam no app instalado pelo site.</p>';
-    if (Notification.permission === 'granted') return '<p class="note">Notificações ativadas.</p>';
+    if (!canNotify() || Notification.permission === 'granted') return '';
     if (Notification.permission === 'denied') return '<p class="note warn">Notificações bloqueadas. Libere nas configurações do site no navegador.</p>';
     return '<button class="btn ghost block" data-act="notify">Ativar notificações</button>';
   };
@@ -251,7 +245,7 @@
     // o pedido de permissão precisa sair direto do toque
     if (canNotify() && Notification.permission === 'default') await Notification.requestPermission();
     if (await changeSession(cur => cur || L.startSession(S.settings.latency))) {
-      toast(canNotify() && Notification.permission === 'granted' ? 'Cronômetro ligado. Boa noite!' : 'Cronômetro ligado sem notificação. Abra o NOX ao acordar.', 'ok');
+      toast('Cronômetro ligado. Boa noite!', 'ok');
     }
   };
 
@@ -384,7 +378,7 @@
 
   const timingCard = days => {
     const t = L.timing(days.map(record).filter(Boolean));
-    if (t.count < 3) return `<section class="card"><h3>Seus horários</h3><p class="muted">Registre os horários de dormir e acordar em pelo menos 3 noites do período para ver sua rotina. O modo Vou dormir preenche isso sozinho.</p></section>`;
+    if (t.count < 3) return `<section class="card"><h3>Seus horários</h3><p class="muted">Registre horários em 3 noites para ver sua rotina.</p></section>`;
     const W = 340, H = 180, x0 = 36, ph = 152, step = (W - x0 - 2) / days.length, bw = Math.min(14, step * .5);
     const lo = Math.floor((Math.min(...t.nights.map(n => n.from)) - 30) / 120) * 120;
     const hi = Math.ceil((Math.max(...t.nights.map(n => n.to)) + 30) / 120) * 120;
@@ -397,13 +391,13 @@
     });
     return `<section class="card"><h3>Seus horários</h3><div class="row between period"><div><small>Costuma dormir</small><b>${t.bed}</b></div><div><small>Costuma acordar</small><b>${t.wake}</b></div><div><small>Variação</small><b>${t.spread} min</b></div></div>
       <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Horários de dormir e acordar por noite">${out}</svg>
-      <p class="note">Cada barra vai do horário de dormir (ponto ciano) ao de acordar, da esquerda (mais antigo) para a direita. Quanto menor a variação, mais regular sua rotina.</p></section>`;
+      </section>`;
   };
 
   const backupCard = () => {
     const s = S.settings, t = L.today();
     if (s.autoBackup || S.records.length < 5 || (s.lastBackup && s.lastBackup > L.addDays(t, -14)) || s.backupSnooze > t) return '';
-    return `<section class="card"><h3>Proteja seus registros</h3><p class="muted">Você tem ${plural(S.records.length, 'noite salva', 'noites salvas')} só neste aparelho. Guarde um backup para não perder se trocar de celular ou limpar o navegador.</p>
+    return `<section class="card"><h3>Proteja seus registros</h3><p class="muted">Você tem ${plural(S.records.length, 'noite salva', 'noites salvas')} só neste aparelho. Guarde um backup.</p>
       <button class="btn ghost block" data-act="export">${icon('download')} Fazer backup</button><button class="link" data-act="backup-later">Lembrar em 7 dias</button></section>`;
   };
 
@@ -609,10 +603,8 @@
     const editing = mode === 'edit';
     const original = editing ? date : null;
     const el = openSheet(`<h2>${timer ? 'Confira sua noite' : found ? 'Editar noite' : 'Registrar sono'}</h2>
-      ${timer ? `<p class="banner">Cronômetro: ${L.fmtDur(timer.total)}, menos ${timer.latency} min para pegar no sono${timer.awake ? ` e ${timer.awake} min acordado` : ''}. Ajuste se precisar.</p>
-        ${timer.auto ? '<p class="banner">Desligado no limite de 10 horas. Corrija o horário em que acordou. Esta noite não conta na Bolha de Sonhos.</p>' : ''}<p class="banner" id="replace" ${found ? '' : 'hidden'}>${replaceText(date)}</p>`
-        : found && !editing ? '<p class="banner">Já existe um registro nesta data. Você está editando esse registro.</p>' : ''}
-      ${!timer && found?.nap ? `<p class="note">O total inclui ${L.fmtDur(found.nap)} de soneca.</p>` : ''}
+      ${timer ? `${timer.auto ? '<p class="banner">Desligado em 10 horas. Corrija a hora em que acordou.</p>' : ''}<p class="banner" id="replace" ${found ? '' : 'hidden'}>${replaceText(date)}</p>`
+        : ''}
 
       <form class="form" novalidate>
         <input type="hidden" name="date" value="${date}"><p class="muted">${date === L.today() ? 'Hoje' : 'Noite medida pelo cronômetro'} · ${fmtDate(date)}</p>
@@ -710,8 +702,8 @@
         ${row('Horas dormidas', L.fmtDur(r.minutes))}${row('Meta diária', L.fmtDur(r.goal))}${bar(r.minutes / r.goal)}
         ${r.nap ? row('Soneca incluída', L.fmtDur(r.nap)) : ''}${r.quality ? row('Qualidade', QUALITY[r.quality - 1]) : ''}${r.bed ? row('Foi dormir', r.bed) : ''}${r.wake ? row('Acordou', r.wake) : ''}
         ${date === L.today() ? `<button class="btn primary block" data-act="edit" data-v="${date}">${icon('edit')} Editar registro</button>`
-          : `<p class="note">Só o registro de hoje pode ser editado.</p><button class="btn danger block" data-act="delete-day" data-v="${date}">${icon('trash')} Excluir registro</button>`}`
-        : `<span class="chip">Sem registro</span>${row('Meta diária', L.fmtDur(S.settings.goal))}${date === L.today() ? `<button class="btn primary block" data-act="edit-new" data-v="${date}">${icon('plus')} Registrar esta noite</button>` : '<p class="note">Só dá para registrar a noite no próprio dia.</p>'}`}`);
+          : `<button class="btn danger block" data-act="delete-day" data-v="${date}">${icon('trash')} Excluir registro</button>`}`
+        : `<span class="chip">Sem registro</span>${row('Meta diária', L.fmtDur(S.settings.goal))}${date === L.today() ? `<button class="btn primary block" data-act="edit-new" data-v="${date}">${icon('plus')} Registrar esta noite</button>` : ''}`}`);
   };
 
   /* ---------- compartilhamento ---------- */
@@ -789,16 +781,15 @@
     const mine = S.records.filter(r => r.tm).map(r => [r.date, r.tm, r.goal]);
     const people = [{ id: 'me', name: S.settings.name || 'Você', nights: mine, avatar: myAvatar() }, ...S.friends]
       .map(p => ({ ...p, w: L.weekStats(p.nights, t) })).sort((a, b) => b.w.met - a.w.met || b.w.count - a.w.count);
-    openSheet(`<h2>Bolha de Sonhos</h2><p class="muted">Últimos 7 dias. Só contam noites medidas com o <b>Vou dormir</b>. Bolhas maiores têm mais noites na meta.</p>
+    openSheet(`<h2>Bolha de Sonhos</h2><p class="muted">Últimos 7 dias, só com o <b>Vou dormir</b>.</p>
       <div class="dreams">${people.map((p, i) => `<div class="dream ${p.id === 'me' ? 'me' : ''}" style="--s:${112 + p.w.met * 9}px;--i:${i}">${p.avatar ? Avatar.svg(p.avatar, { cls: 'tiny', label: '' }) : ''}<b>${esc(p.name)}</b><span>${p.w.avg ? L.fmtDur(p.w.avg) : '—'}</span><small>${p.w.count ? `${p.w.met}/${p.w.count} na meta` : 'sem noites'}</small></div>`).join('')}</div>
       ${S.friends.map(f => `<div class="row between line">${f.avatar ? Avatar.svg(f.avatar, { cls: 'small', label: '' }) : ''}<div class="grow"><b>${esc(f.name)}</b><br><small class="muted">Atualizado em ${fmtDate(f.at, { day: 'numeric', month: 'short' })}</small></div><button class="icon-btn" data-act="friend-remove" data-v="${f.id}" aria-label="Remover ${esc(f.name)}">${icon('trash')}</button></div>`).join('')}
       <button class="btn primary block" data-act="invite">${icon('share')} Convidar amigo</button>
-      <button class="btn ghost block" data-act="paste-invite">Colar convite recebido</button>
-      <p class="note">Não há servidor: os números de um amigo mudam quando ele envia um convite novo. O convite leva seu nome e suas noites medidas dos últimos 14 dias; envie só para quem você quiser.</p>`);
+      <button class="btn ghost block" data-act="paste-invite">Colar convite recebido</button>`);
   };
 
   const openInvite = () => {
-    const el = openSheet(`<h2>Convidar amigo</h2><p class="muted">Envie o link. A pessoa toca nele, adiciona você e manda o convite dela de volta.</p>
+    const el = openSheet(`<h2>Convidar amigo</h2><p class="muted">Envie o link para o seu amigo.</p>
       <label>Seu nome na bolha<input id="inv-name" maxlength="30" value="${esc(S.settings.name)}" placeholder="Seu nome"></label>
       <button class="btn primary block" id="send">${icon('share')} Enviar convite</button><button class="btn ghost block" id="copy-inv">${icon('copy')} Copiar link</button>`);
     const input = $('#inv-name', el);
@@ -911,7 +902,6 @@
     if (step === 'tour') {
       el.innerHTML = `<div class="intro-top"><span class="brand">NOX</span><button class="link" data-act="skip">Pular</button></div>
         <div id="track" tabindex="0" aria-label="Apresentação do NOX">${SLIDES.map(([title, text, art]) => `<section class="t-slide"><div class="t-art">${art()}</div><h1>${title}</h1><p>${text}</p></section>`).join('')}</div>
-        <p class="note swipe">Arraste para o lado</p>
         <div class="dots">${SLIDES.map((_, i) => `<button data-act="dot" data-v="${i}" aria-label="Tela ${i + 1} de ${SLIDES.length}"><i></i></button>`).join('')}</div>
         <button class="btn primary block" id="tour-next" data-act="next">Continuar</button>`;
       const track = $('#track');
