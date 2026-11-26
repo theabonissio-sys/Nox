@@ -185,7 +185,8 @@
         <button class="btn ghost block" data-act="export">${icon('download')} Exportar registros</button>
         <button class="btn ghost block" data-act="import">${icon('upload')} Importar backup</button>
         <input type="file" id="file" accept=".json,application/json" hidden></section>
-      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.5.</p>
+      <section class="card about"><h3>Sobre o NOX</h3><p class="muted">Rastreador pessoal de sono, progresso e conquistas. Versão 1.6.</p>
+        <button class="btn ghost block" data-act="tour">${icon('sparkle')} Ver apresentação</button>
         <p class="muted">${icon('shield')} Sem conta, sem servidor e sem rastreamento. Funciona offline depois de instalado. Dados só saem do aparelho quando você envia um convite, imagem ou backup.</p>
         <p class="muted">As sugestões de meta seguem as faixas da National Sleep Foundation. O NOX não é um dispositivo médico; se o sono estiver preocupando você, converse com um profissional de saúde.</p></section>
       <button class="btn danger block" data-act="wipe">${icon('trash')} Apagar todos os dados</button>`;
@@ -268,7 +269,7 @@
   };
 
   const attend = () => {
-    if (!S.settings.onboarded || !$('#sheet').hidden || !$('#party').hidden) return;
+    if (!S.settings.onboarded || !$('#intro').hidden || !$('#sheet').hidden || !$('#party').hidden) return;
     if (pendingInvite) { const code = pendingInvite; pendingInvite = ''; return acceptInvite(code); }
     if (S.session?.status === 'ended') reviewSleep(); else askAwake();
   };
@@ -441,13 +442,13 @@
     <button type="button" class="icon-btn" data-act="goal" data-v="15" aria-label="Aumentar 15 minutos">${icon('plus')}</button></div><small id="goal-note">${goalNote(goal, ageId)}</small></div>`;
 
   /* ---------- renderização ---------- */
+  let wheel;
   const render = (animate = false) => {
     const view = $('#view'), y = window.scrollY;
     view.classList.toggle('enter', animate);
     view.classList.toggle('still', !animate);
     view.innerHTML = views[S.tab]();
-    $$('#nav button').forEach(b => { const on = b.dataset.v === S.tab; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
-    $('#nav').style.setProperty('--i', TABS.findIndex(t => t[0] === S.tab));
+    wheel.select(TABS.findIndex(t => t[0] === S.tab));
     window.scrollTo(0, animate ? 0 : y);
     if (animate && S.tab === 'progresso') playChart();
     const f = $('#file');
@@ -761,7 +762,7 @@
       const data = L.parseBackup(await file.text());
       if (!await ask({ title: 'Importar backup?', text: `O arquivo tem ${plural(data.records.length, 'noite', 'noites')}. Os dados atuais deste aparelho (${plural(S.records.length, 'noite', 'noites')}) serão substituídos.`, ok: 'Substituir pelos do arquivo', danger: S.records.length > 0 })) return;
       const rewards = data.rewards.concat(L.evaluate(data.records, data.rewards));
-      const settings = { ...data.settings, onboarded: true };
+      const settings = { ...data.settings, onboarded: true, tour: true };
       await DB.commit({ replace: true, put: data.records, rewards, settings });
       await DB.setMeta('friends', data.friends);
       Object.assign(S, { records: data.records, rewards, settings, friends: data.friends });
@@ -852,32 +853,71 @@
   };
 
   /* ---------- primeiro acesso ---------- */
+  /* Apresentação: telas que passam arrastando. A do centro fica grande; as vizinhas giram e encolhem. */
   const SLIDES = [
-    ['moon', 'Conheça seu ritmo', 'O NOX acompanha o seu sono e ajuda você a entender os próprios hábitos.'],
-    ['calendar', 'Registre suas noites', 'Anote todo dia quantas horas dormiu. Leva poucos segundos.'],
-    ['trophy', 'Evolua com o tempo', 'Ganhe XP, cumpra missões, conquiste medalhas e veja sua evolução em gráficos.'],
+    ['Bem-vindo ao NOX', 'Um lugar para entender o seu sono e evoluir, uma noite de cada vez.',
+      () => `<div class="t-moon"><i></i><i></i><i></i><span>${icon('moon')}</span></div>`],
+    ['Toque em “Vou dormir”', 'O cronômetro conta a sua noite. Se preferir, anote as horas quando acordar.',
+      () => `<div class="art-card t-timer"><small>Exemplo · Vou dormir</small><b>07:42:10</b><div class="bar"><i></i></div></div>`],
+    ['Veja sua evolução', 'Gráficos animados mostram sua média, seus horários e as noites na meta.',
+      () => `<div class="art-card t-chart"><small>Exemplo · sua semana</small><svg viewBox="0 0 240 110" aria-hidden="true"><defs><linearGradient id="tg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="240" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset=".5" stop-color="#818cf8"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs>
+        <path pathLength="1" fill="none" stroke="url(#tg)" stroke-width="5" stroke-linecap="round" d="M10 85C30 85 30 60 50 60S75 75 95 75 120 35 140 35 165 55 185 55 210 20 228 20"/><g transform="translate(228 20)"><polygon points="${star(13)}" fill="#fde047"/></g></svg></div>`],
+    ['Colecione conquistas', 'Cumpra missões, ganhe XP, suba de nível e desbloqueie medalhas.',
+      () => `<div class="art-medals">${[L.MEDALS[3], L.MEDALS[0], L.MEDALS[4]].map(m => medal(m, true)).join('')}</div>`],
+    ['Bolha de Sonhos', 'Troque convites com amigos e compare as noites marcadas com o Vou dormir.',
+      () => '<div class="t-bubbles"><i></i><i></i><i></i><i></i></div>'],
+    ['Só seu', 'Sem login e sem cadastro. Os registros ficam neste aparelho e só saem se você compartilhar ou exportar.',
+      () => `<div class="t-moon safe"><span>${icon('shield')}</span></div>`],
   ];
-  let step = 0, setup = { name: '', age: 'a', goal: 480 };
+  let step = 'tour', slide = 0, setup = { name: '', age: 'a', goal: 480 };
+
+  const paintTour = () => {
+    const track = $('#track');
+    if (!track?.clientWidth) return;
+    const at = track.scrollLeft / track.clientWidth, still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    $$('.t-slide', track).forEach((el, i) => {
+      const d = Math.max(-1, Math.min(1, i - at)), far = Math.abs(d), art = $('.t-art', el);
+      if (!still) art.style.transform = `translateY(${(far * 40).toFixed(1)}px) rotate(${(d * 35).toFixed(1)}deg) scale(${(1 - far * .45).toFixed(3)})`;
+      el.style.opacity = (1 - far * .75).toFixed(2);
+    });
+    const now = Math.round(at), current = $$('.t-slide', track)[now];
+    if (!current || current.classList.contains('on')) return;
+    slide = now;
+    $$('.t-slide', track).forEach(el => el.classList.toggle('on', el === current));
+    $$('#intro .dots button').forEach((b, i) => { b.classList.toggle('on', i === now); b.setAttribute('aria-current', i === now ? 'step' : 'false'); });
+    $('#tour-next').textContent = now < SLIDES.length - 1 ? 'Continuar' : S.settings.onboarded ? 'VOLTAR AO NOX' : 'COMEÇAR';
+  };
+  const showSlide = i => { const t = $('#track'); t.scrollTo({ left: i * t.clientWidth, behavior: 'smooth' }); };
+
   const onboard = () => {
     const el = $('#intro');
     el.hidden = false;
-    if (step < 3) {
-      const [ic, title, text] = SLIDES[step];
-      const art = [
-        `<div class="orb"><span>${icon(ic)}</span></div>`,
-        `<div class="art-card"><small>Esta noite</small><b>7h 30min</b><div class="week">${[60, 78, 52, 90, 70, 96, 82].map((h, i) => `<span class="col"><i class="${h > 75 ? 'met' : 'low'}" style="height:${h}%;animation-delay:${i * 70}ms"></i></span>`).join('')}</div></div>`,
-        `<div class="art-medals">${[L.MEDALS[3], L.MEDALS[0], L.MEDALS[4]].map(m => medal(m, true)).join('')}</div>`,
-      ][step];
+    document.body.classList.add('locked');
+    if (step === 'tour') {
       el.innerHTML = `<div class="intro-top"><span class="brand">NOX</span><button class="link" data-act="skip">Pular</button></div>
-        <div class="slide">${art}<h1>${title}</h1><p>${text}</p></div>
-        <div class="dots">${SLIDES.map((_, i) => `<i class="${i === step ? 'on' : ''}"></i>`).join('')}</div>
-        <button class="btn primary block" data-act="next">${step === 2 ? 'COMEÇAR' : 'Continuar'}</button>`;
+        <div id="track" tabindex="0" aria-label="Apresentação do NOX">${SLIDES.map(([title, text, art]) => `<section class="t-slide"><div class="t-art">${art()}</div><h1>${title}</h1><p>${text}</p></section>`).join('')}</div>
+        <p class="note swipe">Arraste para o lado</p>
+        <div class="dots">${SLIDES.map((_, i) => `<button data-act="dot" data-v="${i}" aria-label="Tela ${i + 1} de ${SLIDES.length}"><i></i></button>`).join('')}</div>
+        <button class="btn primary block" id="tour-next" data-act="next">Continuar</button>`;
+      const track = $('#track');
+      track.addEventListener('scroll', () => requestAnimationFrame(paintTour), { passive: true });
+      track.scrollLeft = 0;
+      slide = 0;
+      paintTour();
     } else {
       el.innerHTML = `<div class="intro-top"><span class="brand">NOX</span></div><div class="slide form left"><h1>Sua meta de sono</h1><p>Sugerimos um valor pela sua idade. Ajuste como preferir.</p>
         <label>Como quer ser chamado?<input id="set-name" maxlength="30" placeholder="Seu nome (opcional)" value="${esc(setup.name)}" autocomplete="off"></label>
         ${ageField(setup.age)}${goalField(setup.goal, setup.age)}</div>
         <button class="btn primary block" data-act="finish">SALVAR E ENTRAR</button>`;
     }
+  };
+  const closeIntro = () => { $('#intro').hidden = true; document.body.classList.remove('locked'); };
+  /* fim da apresentação: quem é novo escolhe a meta; quem já usa volta para o app */
+  const endTour = async () => {
+    if (!S.settings.onboarded) { step = 'goal'; return onboard(); }
+    closeIntro();
+    await saveSettings({ tour: true });
+    attend();
   };
 
   /* ---------- eventos ---------- */
@@ -942,10 +982,11 @@
       el.dataset.goal = g; el.textContent = L.fmtDur(g); $('#goal-note').innerHTML = goalNote(g, ageId);
       if ($('#intro').hidden) await saveSettings({ goal: g }); else setup.goal = g;
     },
-    next: () => { step++; onboard(); }, skip: () => { step = 3; onboard(); },
+    next: () => (slide < SLIDES.length - 1 ? showSlide(slide + 1) : endTour()), skip: () => endTour(), dot: v => showSlide(Number(v)),
+    tour: () => { step = 'tour'; onboard(); },
     finish: async () => {
-      if (!await saveSettings({ ...setup, name: $('#set-name').value, onboarded: true })) return;
-      $('#intro').hidden = true; render(true); setTimeout(attend, 300);
+      if (!await saveSettings({ ...setup, name: $('#set-name').value, onboarded: true, tour: true })) return;
+      closeIntro(); render(true); setTimeout(attend, 300);
       navigator.storage?.persist?.().catch(() => {});
     },
     export: () => exportData(), import: () => $('#file').click(),
@@ -956,7 +997,7 @@
         await DB.wipe();
         Object.assign(S, { records: [], rewards: [], settings: L.cleanSettings(), session: null, friends: [], tab: 'inicio' });
         syncNotice();
-        step = 0; setup = { name: '', age: 'a', goal: 480 };
+        step = 'tour'; setup = { name: '', age: 'a', goal: 480 };
         applyTheme(); render(); onboard();
       } catch { toast('Não foi possível apagar os dados.', 'bad'); }
     },
@@ -1038,7 +1079,7 @@
   };
 
   const start = async () => {
-    $('#nav').innerHTML = `<span class="pill"></span>${TABS.map(([id, label, ic]) => `<button data-act="tab" data-v="${id}">${icon(ic)}<span>${label}</span></button>`).join('')}`;
+    wheel = Wheel({ nav: $('#nav'), items: TABS, onPick: go, onStep: () => { if (S.settings.sounds) navigator.vibrate?.(8); } });
     try {
       await DB.open();
       const data = await DB.load();
@@ -1057,8 +1098,9 @@
     if (TABS.some(t => t[0] === hash)) S.tab = hash;
     try { history.replaceState(null, '', location.href); } catch { /* sem histórico */ }
     applyTheme(); render(true);
-    if (!S.settings.onboarded) onboard();
-    else navigator.storage?.persist?.().catch(() => {});
+    // quem já usava vê a apresentação uma vez, sem interromper um cronômetro ligado
+    if (!S.settings.onboarded || (!S.settings.tour && !S.session)) onboard();
+    if (S.settings.onboarded) navigator.storage?.persist?.().catch(() => {});
     setTimeout(() => { const s = $('#splash'); s.classList.add('bye'); setTimeout(() => s.remove(), 250); }, 200);
     if ('serviceWorker' in navigator && document.querySelector('link[rel=manifest]')) navigator.serviceWorker.register('sw.js').then(watchUpdates).catch(() => {});
     setTimeout(attend, 600);

@@ -251,7 +251,7 @@
     return {
       name: String(s.name || '').trim().slice(0, 30), age: a,
       goal: Number.isInteger(s.goal) ? Math.min(lim.max, Math.max(lim.min, s.goal)) : age(a).sug,
-      theme: s.theme === 'light' ? 'light' : 'dark', onboarded: !!s.onboarded,
+      theme: s.theme === 'light' ? 'light' : 'dark', onboarded: !!s.onboarded, tour: !!s.tour,
       latency: Number.isInteger(s.latency) ? Math.min(60, Math.max(0, s.latency)) : 15,
       lastBackup: validDate(s.lastBackup) ? s.lastBackup : '', backupSnooze: validDate(s.backupSnooze) ? s.backupSnooze : '',
       reminders: s.reminders !== false, autoBackup: s.autoBackup !== false, sounds: s.sounds !== false,
